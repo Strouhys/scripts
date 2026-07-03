@@ -1,0 +1,8 @@
+set ONDP_OFLOW_API_PORT=8010
+set ONDP_OFLOW_WEB_PORT=8081
+set ONDP_OFLOW_API_URL=http://ntinfo403.to2.to2cz.cz:%ONDP_OFLOW_API_PORT%
+set ONDP_OFLOW_AUTH=ONDP_OFLOW_API_PORT
+set ONDP_OFLOW_WEB_USER=bq_admin
+set ONDP_OFLOW_WEB_PASSWORD=NpSnb7Js5pOMNCN4YfCn
+ 
+C:\Users\x0577063\scripts\bin\oflow-web-windows-amd64.exe

@@ -1,0 +1,18 @@
+# tohle se pokusí načíst .env soubor; viz také https://just.systems/man/en/settings.html
+set dotenv-load                         # načte .env
+set dotenv-override                     # pokud jsou tam nějaké proměnné které má aktuální shell, tak je přebij
+set ignore-comments                     # pokud řádek začíná na pound sign, je to komentář a ignoruj jiného
+
+# cross platformní použitelnost; ale pozor, na windows nefunguje dobře quoting
+set shell := ["bash", "-uc"]            # defaultní shell je sh, ale já chci použít bash, a -uc znamená že každý řádek je command který ale padne na undefined proměnné
+set windows-shell := ["cmd.exe", "/c"]  # pro windows normálně přes cmd.exe
+
+default:
+    just --list
+
+
+
+# LINUX: run the stage load for one extract
+[ group('prod') ]
+web-403:
+    C:\Users\x0577063\scripts\bin\oflow-web-windows-amd64.exe

@@ -1,0 +1,23 @@
+PS C:\Users\x0577063> $env:ONDP_OFLOW_API_PORT = "8100"
+PS C:\Users\x0577063>
+PS C:\Users\x0577063> $env:ONDP_OFLOW_WEB_PORT = "8101"
+PS C:\Users\x0577063>
+PS C:\Users\x0577063> $env:ONDP_OFLOW_API_URL = "http://NTINFOT404:8100"
+PS C:\Users\x0577063>
+PS C:\Users\x0577063> $env:ONDP_OFLOW_AUTH = "jablko1234"
+PS C:\Users\x0577063>
+PS C:\Users\x0577063> $env:ONDP_OFLOW_WEB_USER = "admin"
+PS C:\Users\x0577063>
+PS C:\Users\x0577063> $env:ONDP_OFLOW_WEB_PASSWORD = "admin"
+PS C:\Users\x0577063> Get-ChildItem Env:ONDP*
+
+Invoke-RestMethod "http://NTINFOT404:8100/status"
+
+
+
+$env:ONDP_OFLOW_API_PORT = "8100"
+$env:ONDP_OFLOW_WEB_PORT = "8101"
+$env:ONDP_OFLOW_API_URL = "http://NTINFOT404:8100"
+$env:ONDP_OFLOW_AUTH = "jablko1234"
+$env:ONDP_OFLOW_WEB_USER = "admin"
+$env:ONDP_OFLOW_WEB_PASSWORD = "admin"

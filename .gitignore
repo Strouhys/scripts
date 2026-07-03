@@ -1,0 +1,11 @@
+﻿
+# citlive / lokalni soubory
+.env
+*.env
+*.log
+*.tmp
+
+# binarni soubory
+*.exe
+*.dll
+*.zip

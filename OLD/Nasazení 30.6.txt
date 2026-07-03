@@ -1,0 +1,39 @@
+Nasazení 30.6
+
+Ahoj,
+Mělo by se začít tím, že se zastaví E9. Protože součástí bude – aspoň předpokládám – i OCS a to je intraday.
+Tedy navrhuji postup:
+
+1.	Zastavené E9, zastavíme BQ stg (BQ scheduler - stejný postup jako v pátek - 1. Task Scheduler  - disable , Oflow Shutdown
+task scheduler nemusím vůbec používat stačí když v oflow web změním capacity z 15 např. na 0 a dám apply 
+- STG git pull
+ - kontrola log
+ - udělat kontrolu config souborů??? …. raději
+ - založím objekty viz nové repo  2x!!!! v adresáři udělat kontrolu účtu.... gcloud auth list
+ 
+- kontola projektu gcloud config get-value project  - spouštím z 200 primárně pro DEV 
+- když bude potřeba změna projektu gcloud config set project o2cz-dp-wm-200  xxxx
+  
+ 
+- následně spustit .bat  
+
+2.	Počkáme až vše rozpracované se zpracuje na STG
+3.	Zmigujeme systémy do EM1
+4.	Provedeme nasazení stg_data = přelejváky
+5.	Provedeme nasazení změn na E9 (vidličky), a nasazení na BQ stg
+6.	Pustíme BQ stg, pustíme E9
+R.
+ > log.log 
+
+VIRT_NODE
+
+na t404 je totalcommander zde E:\tools\totalcmd
+
+v případě když to spadně tak musím spustit na t404 - nahraju si scripty na \\ntinfot404\VIRT_NODE\temp   (myšleno bat soubory od vývojáře)
+cmd musím spustit jako admin a přejít na disk fVIRT_NODE\temp  a zde spustit kod. Spustit .bat soubor, ale pozor například takto: 
+F:\VIRT_NODE\temp\260630R\bidev-10614-org_and_bscs>preplach_bq.bat >log.log
+
+když by to spadlo tak mohu navázat tímto příkazem >> ale musím se podívat nejdřív do původního logu jaká poslední tabulka se nahrála a vše nad ní v config odmazat a teprve pak spustit.
+F:\VIRT_NODE\temp\260630R\bidev-10614-org_and_bscs>preplach_bq.bat >>log.log
+
+

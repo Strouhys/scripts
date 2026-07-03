@@ -1,0 +1,42 @@
+GIT stg pull - main 
+kontrola na api
+-------------------
+
+i:\dp\BIDEV-MAIN_o2czep-stg>git pull
+- udělat kontrolu posledního logu. i:\dp\BIDEV-MAIN_o2czep-stg>git log -n 3
+
+- pokud to vypíše chybu např tato korekce:
+
+    korekce nastavení pr produkci, cloudsql a projekt
+
+i:\dp\BIDEV-MAIN_o2czep-stg>git gc   -- tohle to opraví
+
+
+
+
+založíme tabulky/objekty 
+ty udělám na mém lokálu
+překopíruji si od vývojáře config soubor a podívám se na jeho nastavení 
+
+například: 
+z projektu o2czem1 na project o2czep
+
+SOURCE_PROJECT=o2czem1
+TARGET_PROJECT=o2czep
+TARGET_DATASET=stg_data
+
+:: Zde zadejte zdrojovy dataset (snapshot)
+SOURCE_DATASET=ap_stg
+
+
+v CMD v config souboru spustím. V CMD udělám kontrolu pod jakým účtem to budu spouštět příkaz: gcloud auth list
+
+-- account má být jiri.strouhal@o2.cz
+
+a následně spustím ze složky .bat soubor
+-- nechám dojet následně přejmenuji config soubot na config_done
+
+-- nezapomenout na VIDLIČKU - musím nakopírovat na VIRT_NODE prázdné parmfile
+
+
+ 
