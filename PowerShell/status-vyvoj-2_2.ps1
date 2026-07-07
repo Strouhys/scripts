@@ -1127,56 +1127,81 @@ function Show-OflowJobsBySystemDetail {
 
 function Show-Menu {
     Clear-Host
+
+    $colWidth = 70
+
     Write-Host "oflow ops admin" -ForegroundColor Cyan
     Write-Host "BaseUrl: $script:BaseUrl"
 
     if ([string]::IsNullOrWhiteSpace($script:AuthToken)) {
         Write-Host "Token:   not loaded" -ForegroundColor Yellow
-    }
-    else {
+    } else {
         Write-Host "Token:   loaded in memory" -ForegroundColor Green
     }
 
     Write-Host ""
-    Write-Host "STATUS / READ-ONLY" -ForegroundColor Cyan
-    Write-Host " 1 - Health check / rychla diagnostika"
-    Write-Host " 2 - Detailni status + running/failed/cancelled joby"
-    Write-Host " 3 - Running / Waiting jobs (running + failed_restart)"
-    Write-Host " 4 - Status jednoho jobu"
-    Write-Host " 5 - Seznam job definic (/jobs)"
-    Write-Host " 6 - Vyhledavani jobu podle masky + stav"
-    Write-Host " 7 - Detail jobu (/job/name)"
-    Write-Host " 8 - Next jobs (/next_jobs)"
-    Write-Host " 9 - Job stats"
-    Write-Host "10 - Job log"
-    Write-Host "11 - Live monitor"
-    Write-Host "12 - Export status snapshot"
-    Write-Host "13 - Kompletni diagnostika jobu"
 
-    Write-Host ""
-    Write-Host "JOB CONTROL - zasahuje do jobu" -ForegroundColor Yellow
+    Write-Host ("STATUS / READ-ONLY".PadRight($colWidth)) -NoNewline -ForegroundColor Cyan
+    Write-Host "JOB CONTROL - zasahuje do jobu" -ForegroundColor Cyan
+
+    Write-Host (" 1 - Health check / rychla diagnostika".PadRight($colWidth)) -NoNewline
     Write-Host "14 - Start job now"
+
+    Write-Host (" 2 - Detailni status + joby podle stavu".PadRight($colWidth)) -NoNewline
     Write-Host "15 - Start multiple jobs"
-    Write-Host "16 - Cancel job by ID (running/failed_restart)"
-    Write-Host "17 - Restart job by ID (failed_final/cancelled)"
-    Write-Host "18 - Restart all failed_final/cancelled"
+
+    Write-Host (" 3 - Running / Waiting jobs".PadRight($colWidth)) -NoNewline
+    Write-Host "16 - Cancel job by ID"
+
+    Write-Host (" 4 - Status jednoho jobu".PadRight($colWidth)) -NoNewline
+    Write-Host "17 - Restart job by ID"
+
+    Write-Host (" 5 - Seznam job definic (/jobs)".PadRight($colWidth)) -NoNewline
+    Write-Host "18 - Restart all failed/cancelled"
+
+    Write-Host (" 6 - Vyhledavani jobu podle masky + stav".PadRight($colWidth)) -NoNewline
     Write-Host "19 - Pause job do konkretniho casu"
+
+    Write-Host (" 7 - Detail jobu (/job/name)".PadRight($colWidth)) -NoNewline
     Write-Host "20 - Enable job now"
 
+    Write-Host (" 8 - Next jobs (/next_jobs)".PadRight($colWidth)) -NoNewline
     Write-Host ""
-    Write-Host "POOL / SYSTEM - meni beh scheduleru" -ForegroundColor Red
-    Write-Host "21 - Pool capacity"
-    Write-Host "22 - Graceful shutdown oflow"
+
+    Write-Host (" 9 - Job stats".PadRight($colWidth)) -NoNewline
+    Write-Host ""
+
+    Write-Host ("10 - Job log".PadRight($colWidth)) -NoNewline
+    Write-Host ""
+
+    Write-Host ("11 - Live monitor".PadRight($colWidth)) -NoNewline
+    Write-Host ""
+
+    Write-Host ("12 - Export status snapshot".PadRight($colWidth)) -NoNewline
+    Write-Host ""
+
+    Write-Host ("13 - Kompletni diagnostika jobu".PadRight($colWidth)) -NoNewline
+    Write-Host ""
 
     Write-Host ""
+
+    Write-Host ("POOL / SYSTEM - meni beh scheduleru".PadRight($colWidth)) -NoNewline -ForegroundColor Cyan
     Write-Host "PROVOZNI PREHLEDY / SYSTEMY" -ForegroundColor Cyan
+
+    Write-Host ("21 - Pool capacity".PadRight($colWidth)) -NoNewline
     Write-Host "30 - Systemy/prefixy v oflow"
+
+    Write-Host ("22 - Graceful shutdown oflow".PadRight($colWidth)) -NoNewline
     Write-Host "31 - Souhrn stavu podle systemu"
+
+    Write-Host ("".PadRight($colWidth)) -NoNewline
     Write-Host "32 - Failed joby podle systemu"
+
+    Write-Host ("".PadRight($colWidth)) -NoNewline
     Write-Host "33 - Detail jobu pro system"
 
     Write-Host ""
-    Write-Host " 0 - Konec"
+    Write-Host " 0 - Konec" -ForegroundColor Yellow
     Write-Host ""
 }
 
