@@ -6,6 +6,7 @@ import os
 import shutil
 import sys
 from datetime import datetime, timedelta
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
 
 
@@ -53,7 +54,7 @@ def setup_logging(log_file: Path) -> None:
         format="%(asctime)s [%(levelname)s] %(message)s",
         handlers=[
             logging.StreamHandler(sys.stdout),
-            logging.FileHandler(log_file, encoding="utf-8"),
+            RotatingFileHandler(log_file, maxBytes=5 * 1024 * 1024, backupCount=5, encoding="utf-8"),
         ],
     )
 
@@ -78,7 +79,6 @@ def move_old_logs(
     target_dir: Path,
     file_pattern: str,
     min_age_hours: float,
-    dry_run: bool,
 ) -> tuple[int, int]:
     if not source_dir.exists():
         raise FileNotFoundError(f"Zdrojova slozka neexistuje: {source_dir}")
@@ -96,7 +96,6 @@ def move_old_logs(
     logging.info("Cil: %s", target_dir)
     logging.info("Maska souboru: %s", file_pattern)
     logging.info("Presouvam soubory starsi nez %.2f hodin, tedy upravene pred: %s", min_age_hours, cutoff)
-    logging.info("Dry-run rezim: %s", "ANO" if dry_run else "NE")
 
     for source_file in sorted(source_dir.glob(file_pattern)):
         if not source_file.is_file():
@@ -110,11 +109,6 @@ def move_old_logs(
             continue
 
         target_file = resolve_unique_target(target_dir / source_file.name)
-
-        if dry_run:
-            logging.info("DRY-RUN: presunul bych %s -> %s", source_file, target_file)
-            moved += 1
-            continue
 
         try:
             shutil.move(str(source_file), str(target_file))
@@ -144,18 +138,14 @@ def main() -> int:
         target_dir = Path(config["TARGET_DIR"])
         file_pattern = config.get("FILE_PATTERN", "*.log")
         min_age_hours = float(config.get("MIN_AGE_HOURS", "24"))
-        dry_run = get_bool(config.get("DRY_RUN"), default=False)
 
-        log_file_value = config.get("JOB_LOG_FILE", "logs/move_old_logs.log")
-        log_file = Path(log_file_value)
-        if not log_file.is_absolute():
-            log_file = script_dir / log_file
+        log_file = script_dir / "logs" / "move_old_logs.log"
 
         setup_logging(log_file)
         logging.info("Start jobu: %s", datetime.now())
         logging.info("Konfigurace: %s", env_path)
 
-        move_old_logs(source_dir, target_dir, file_pattern, min_age_hours, dry_run)
+        move_old_logs(source_dir, target_dir, file_pattern, min_age_hours)
         return 0
 
     except KeyError as exc:
