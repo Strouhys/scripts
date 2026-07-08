@@ -1,8 +1,5 @@
-from __future__ import annotations
-
 import argparse
 import logging
-import os
 import shutil
 import sys
 from datetime import datetime, timedelta
@@ -37,13 +34,6 @@ def load_env_file(env_path: Path) -> dict[str, str]:
         values[key] = value
 
     return values
-
-
-def get_bool(value: str | None, default: bool = False) -> bool:
-    if value is None:
-        return default
-
-    return value.strip().lower() in {"1", "true", "yes", "y", "ano"}
 
 
 def setup_logging(log_file: Path) -> None:

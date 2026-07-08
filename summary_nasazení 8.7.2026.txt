@@ -1,0 +1,57 @@
+Ahoj Jirko a Dane, posílám krátké summary pro dnešní nasazení.
+
+
+POSTUP
+
+1) synchronizace nasazení s nasazením na EDW!
+
+- Teradata provoz musí ZASTAVIT zpracování na STG vrstvě (engine 9) - nasazuje Jirka Novotný - standardní postup ("mark as finished" pro jov "DIRECTOR")
+- Jirka Novotný MUSÍ dát vědět na Rosťu Levíčka, že má spustit přenos dat Teradata => BigQuery
+- pak mohou začít nasazovat na EDW, ale NESMÍ po nasazení bez potvrzení Rosti Levíčka spustit engine 9
+
+
+2) Rosťa Levíček potvrdil že jsou přenesená data z TD na BQ => MŮŽEME NASAZOVAT na BQ, dřív ne.
+
+3) Rosťa Levíček dá vědět Jirkovi Novotnému, že je přeneseno => je možné dokončit nasazení na TD (spuštění engine 9)
+
+
+PRE-REKVIZITY
+
+1) Jan Herout - musím potvrdit, že jsem v repu BIDEV-MAIN_o2czep-stg dal merge na main - zatím není, viz níže v textu
+2) Rosťa Levíček - potvrdil že jsou přenesená data
+3) máte všechny přelévací skripty; autoři:
+   - Miro Frajbiš
+   - Stanislava Knoppová
+   - Zdeněk Kalina
+
+
+CO NASAZUJEME
+
+1) změna v repu BIDEV-APP-PY_ondp - je tam hotfix který souvisí se SAPem, je to ma main branchi
+
+```
+i:
+cd \dp\BIDEV-APP-PY_ondp
+git pull
+```
+
+Commit:
+```
+$ git log -n 1
+commit 4032782b5bc5195d5db8142153e82261b0ac966b (HEAD -> main, origin/main, origin/HEAD, hotfix/260707M-sap)
+Author: Jan Herout <jan.herout@o2.cz>
+Date:   2026-07-07 17:57:31
+
+    bugfix: acrm validátor
+```
+
+
+2) nové systémy - repo BIDEV-MAIN_o2czep-stg - až po mém potvrzení prosím!
+
+```
+i:
+cd \dp\BIDEV-MAIN_o2czep-stg
+git pull
+```
+
+3) přelévací skripty - viz výše
