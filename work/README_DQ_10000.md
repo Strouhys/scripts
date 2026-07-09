@@ -1,18 +1,26 @@
-Ověřit názvy a region
+# DQ10000 - provozni postup sbiru dat
 
-project: o2czed1
-landing dataset: stg_lnd
-cílový dataset: daq_data
-region datasetu stg_lnd: europe-west4
-pattern DQ tabulek: názvy obsahují __dq10000__
-počet DQ tabulek: 832
-všechny DQ tabulky mají stejný počet sloupců: 9
-pro spojení/merge do cíle používat pouze DQ tabulky, které mají data (total_rows > 0)
-prázdné DQ tabulky nebudou součástí UNION ALL; řešit je samostatně jako cleanup
+Tento dokument popisuje, jak sbirat data z DQ tabulek ve `stg_lnd` do centralni tabulky `dq10000_all`.
 
-Struktura DQ tabulek:
+## 1. Konfigurace a zakladni fakta
 
-| Sloupec | Pořadí | Datový typ | Nullable |
+- Projekt: `o2czed1`
+- Zdrojovy dataset (landing): `stg_lnd`
+- Cilovy dataset: `daq_data`
+- Region zdrojoveho datasetu: `europe-west4`
+- Pattern DQ tabulek: nazev obsahuje `__dq10000__`
+- Pocet DQ tabulek (aktualni stav): `832`
+- Vsechny DQ tabulky maji stejne schema: `9` sloupcu
+
+## 2. Pravidla pro vyber tabulek do zpracovani
+
+- Do prenosu pouzivej pouze tabulky s daty (`total_rows > 0`).
+- Prazdne DQ tabulky nezahrnuj do `UNION ALL`; res je samostatnym cleanup krokem.
+- Doporučeno zpracovavat pouze tabulky starsi nez 12 hodin, aby se omezilo riziko prace s rozpracovanymi daty.
+
+## 3. Schema DQ tabulek
+
+| Sloupec | Poradi | Datovy typ | Nullable |
 |---|---:|---|---|
 | load_dttm | 1 | DATETIME | NO |
 | job_id | 2 | INT64 | NO |
@@ -24,12 +32,13 @@ Struktura DQ tabulek:
 | sanitized_val | 8 | STRING | YES |
 | raw_line | 9 | STRING | YES |
 
+## 4. Cilova tabulka
 
-cílová tabulka: o2czed1.daq_data.dq10000_all
+`o2czed1.daq_data.dq10000_all`
 
+## 5. SQL pro vyber vhodnych tabulek
 
-select pro který vybere vhodné tabulky k přenesení
-
+```sql
 SELECT
   table_catalog AS source_project,
   table_schema AS source_dataset,
@@ -45,17 +54,22 @@ WHERE table_schema = 'stg_lnd'
   AND creation_time < TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 12 HOUR)
   AND total_rows > 0
 ORDER BY total_rows DESC;
+```
 
+## 6. Procedura pro sbirku dat
 
-procedura název procedury: o2czed1.daq_data.sp_collect_dq10000
-sp = stored procedure
-collect = sbírá/přenáší data
-dq10000 = typ tabulek, se kterými pracuje
+Nazev procedury: `o2czed1.daq_data.sp_collect_dq10000`
 
+Vyznam nazvu:
+- `sp`: stored procedure
+- `collect`: sbira/prenasi data
+- `dq10000`: typ tabulek, se kterymi procedura pracuje
 
+## 7. Overovaci dotazy po kazdem behu
 
-Teď bych si ještě zapsal ověřovací dotazy, které budeme používat po každém běhu:
+### 7.1 Posledni behy (hlavni audit)
 
+```sql
 SELECT
   collect_run_id,
   started_at,
@@ -68,9 +82,11 @@ SELECT
 FROM `o2czed1.daq_data.dq10000_load_audit`
 ORDER BY started_at DESC
 LIMIT 10;
+```
 
-Detail posledního běhu:
+### 7.2 Detail posledniho behu po tabulkach
 
+```sql
 SELECT
   collect_run_id,
   source_table,
@@ -89,9 +105,11 @@ WHERE collect_run_id = (
   LIMIT 1
 )
 ORDER BY source_rows DESC;
+```
 
-Kontrola, že ve stg_lnd nezůstaly neprázdné DQ tabulky:
+### 7.3 Kontrola, ze nezustaly neprazdne DQ tabulky ve `stg_lnd`
 
+```sql
 SELECT
   COUNT(*) AS remaining_non_empty_dq_tables
 FROM `o2czed1.region-europe-west4`.INFORMATION_SCHEMA.TABLE_STORAGE
@@ -100,13 +118,19 @@ WHERE table_schema = 'stg_lnd'
   AND REGEXP_CONTAINS(table_name, r'__dq10000__')
   AND creation_time < TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 12 HOUR)
   AND total_rows > 0;
+```
 
-A rychlejší kontrola existence tabulek:
+### 7.4 Rychla kontrola existence DQ tabulek
 
+```sql
 SELECT
   COUNT(*) AS remaining_dq_tables
 FROM `o2czed1.stg_lnd`.INFORMATION_SCHEMA.TABLES
 WHERE table_type = 'BASE TABLE'
   AND REGEXP_CONTAINS(table_name, r'__dq10000__');
+```
 
-Za mě máme hotový hlavní provozní tok. Další krok bych viděl buď naplánovat finální Scheduled Query s touto verzí procedury, nebo ještě doplnit úklid prázdných __dq10000__ tabulek.
+## 8. Doporuceny dalsi krok
+
+1. Nasadit finalni Scheduled Query, ktera bude volat `sp_collect_dq10000`.
+2. Dodelat samostatny cleanup prazdnych `__dq10000__` tabulek.
