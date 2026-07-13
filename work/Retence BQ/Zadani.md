@@ -21,6 +21,7 @@
 - [18. Oprávnění](#18-opravneni)
 - [19. Postup implementace](#19-postup-implementace)
 - [20. Předběžně dohodnutý cílový stav](#20-predbezne-dohodnuty-cilovy-stav)
+- [21. Přepis syntaxe z Teradata do BigQuery](#21-prepis-syntaxe-z-teradata-do-bigquery)
 
 ## 1. Cíl řešení
 
@@ -642,3 +643,273 @@ Na základě dosavadní diskuse je navržen tento směr:
 - chyba jedné tabulky nezastaví ostatní retenční úlohy,
 - většina pravidel bude generována ze standardních šablon,
 - individuální výjimky budou podporované řízeným CUSTOM_SQL.
+
+## 21. Přepis syntaxe z Teradata do BigQuery
+
+Ideální přístup není zachovat Teradata SQL text beze změny, ale zachovat stejný funkční princip:
+
+~~~text
+metadata pravidla -> dosazení referenčního data -> DELETE nad cílovou tabulkou
+~~~
+
+Rozdíl je v tom, že při migraci jednorázově převedeme Teradata execution_where_clause do BigQuery podoby a výsledek uložíme jako nové BigQuery retenční pravidlo.
+
+### Doporučený postup
+
+Navržen je hybridní model se dvěma vrstvami.
+
+### 1. Zachování původní podmínky pro audit
+
+V nové tabulce se ponechá například:
+
+~~~text
+source_execution_where_clause
+~~~
+
+Zde bude původní Teradata syntaxe přesně tak, jak je dnes.
+
+Vedle ní bude:
+
+~~~text
+bq_execution_where_clause
+~~~
+
+nebo lépe strukturovaná BigQuery konfigurace.
+
+Tím je vždy dohledatelné:
+- jaké bylo původní pravidlo,
+- jak bylo přeloženo,
+- zda se význam nezměnil.
+
+### 2. Automatický převod většiny pravidel
+
+Pro známé a opakující se vzory vznikne migrační převodník. Nebude to obecný převodník libovolného Teradata SQL, ale cílený převodník retenčních podmínek.
+
+Například Teradata:
+
+~~~sql
+extract_dttm < CAST(
+  (
+    CAST(CAST('$$LOAD_DTTM' AS TIMESTAMP(0)) AS DATE)
+    - INTERVAL '10' DAY
+  ) AS TIMESTAMP(0)
+)
+~~~
+
+se převede na BigQuery:
+
+~~~sql
+extract_dttm < TIMESTAMP(
+  DATE_SUB(DATE(@retention_reference_dttm), INTERVAL 10 DAY)
+)
+~~~
+
+Nebo se uloží strukturovaně:
+
+~~~text
+retention_type   = COLUMN_AGE
+retention_column = extract_dttm
+retention_value  = 10
+retention_unit   = DAY
+boundary_mode    = START_OF_DAY
+~~~
+
+Vlastní SQL se pak vytvoří až při spuštění, což je bezpečnější než opakované používání ručně psaného SQL textu.
+
+### Jak bude převod prakticky probíhat
+
+#### Fáze A: klasifikace pravidel
+
+Python načte původní execution_where_clause a pokusí se pravidlo zařadit do známé skupiny:
+
+~~~text
+COLUMN_AGE
+CDC_HISTORY
+CDC_DELETED_ROWS
+CALENDAR_PERIOD
+LOAD_SET_BOUNDARY
+TEMPORAL_CLOSED_ROWS
+CUSTOM_SQL
+~~~
+
+Příklad:
+- loaded_dttm < ... -> COLUMN_AGE,
+- TT_END_DTTM < ... OR (Operation = 'D' AND src_dttm < ...) -> CDC_HISTORY.
+
+#### Fáze B: extrakce parametrů
+
+Z původního SQL se vytáhnou parametry.
+
+Pro jednodušší pravidla například:
+
+~~~text
+retention_column = extract_dttm
+retention_value  = 10
+retention_unit   = DAY
+~~~
+
+U CDC například:
+
+~~~text
+end_column             = TT_END_DTTM
+operation_column       = Operation
+delete_operation_value = D
+source_time_column     = src_dttm
+retention_value        = 60
+retention_unit         = DAY
+~~~
+
+#### Fáze C: vytvoření BigQuery varianty
+
+Převodník vygeneruje:
+- strukturovaná metadata,
+- náhled výsledného BigQuery WHERE,
+- stav převodu.
+
+Například:
+
+~~~text
+conversion_status = AUTO_CONVERTED
+~~~
+
+Další možné stavy:
+
+~~~text
+AUTO_CONVERTED
+MANUAL_REVIEW_REQUIRED
+MANUALLY_CONVERTED
+VALIDATED
+REJECTED
+~~~
+
+#### Fáze D: validace
+
+Každé pravidlo by před aktivací mělo projít kontrolou:
+- cílová tabulka existuje,
+- použitý sloupec existuje,
+- datový typ sloupce odpovídá podmínce,
+- výsledná BigQuery syntaxe je validní,
+- podmínka neobsahuje nepovolené příkazy.
+
+Doporučen je i bezpečný test počtu řádků:
+
+~~~sql
+SELECT COUNT(*)
+FROM project.dataset.table
+WHERE <nova_bq_podminka>
+~~~
+
+Teprve po kontrole se pravidlo aktivuje pro skutečný DELETE.
+
+### Co lze převádět automaticky
+
+Velmi dobře půjdou automaticky převést například:
+- CAST(... AS DATE),
+- CAST(... AS TIMESTAMP),
+- INTERVAL '10' DAY,
+- INTERVAL '1' YEAR,
+- CURRENT_DATE,
+- ADD_MONTHS,
+- EXTRACT,
+- jednoduché porovnání <, <=, =,
+- logické kombinace AND, OR,
+- placeholder $$LOAD_DTTM.
+
+Příklady převodu:
+- Current_Date -> CURRENT_DATE() nebo referenční datum,
+- CAST(x AS DATE) -> DATE(x),
+- CAST(x AS TIMESTAMP(0)) -> TIMESTAMP(x),
+- x - INTERVAL '10' DAY -> DATE_SUB(x, INTERVAL 10 DAY) nebo TIMESTAMP_SUB,
+- ADD_MONTHS(x, -6) -> DATE_SUB(x, INTERVAL 6 MONTH),
+- SUBSTRING(x FROM 1 FOR 10) -> SUBSTR(x, 1, 10),
+- EXTRACT(DAY FROM x) -> EXTRACT(DAY FROM x).
+
+Ne vše lze převést prostou náhradou textu. Záleží na datovém typu a pořadí castů.
+
+### Co bude vyžadovat ruční posouzení
+
+Ruční zásah bude potřeba hlavně u:
+- Teradata temporal syntaxe,
+- End(tt_per) IS NOT Until_Closed,
+- poddotazů do pomocných Teradata tabulek,
+- pravidel závislých na E20_LOAD_RETENTION,
+- nestandardních funkcí,
+- pravidel s komplikovanou business logikou,
+- potenciálně chybných historických podmínek.
+
+Taková pravidla se označí:
+
+~~~text
+MANUAL_REVIEW_REQUIRED
+~~~
+
+Proces je do té doby nebude spouštět.
+
+### Zachovat text podmínky, nebo strukturovaná metadata
+
+Doporučeno je obojí.
+
+Tabulka může obsahovat například:
+
+~~~text
+source_platform
+source_execution_where_clause
+retention_type
+retention_column
+retention_value
+retention_unit
+bq_execution_where_clause
+conversion_status
+validation_status
+~~~
+
+Původní Teradata SQL bude sloužit jako historie a důkaz převodu.
+
+Pro samotné spouštění je preferováno:
+1. standardní šablony ze strukturovaných parametrů,
+2. BigQuery custom_where_clause pouze pro výjimky.
+
+### Proč nepoužívat pouze přeložený SQL text
+
+Pouhý textový překlad je nejbližší současnému procesu, ale má nevýhody:
+- hůře se kontroluje,
+- snadněji obsahuje chybu,
+- obtížně se zjišťuje retenční sloupec a délka okna,
+- komplikovaněji se validují změny,
+- různí autoři zapisují stejnou logiku různými způsoby.
+
+Strukturovaný model je větší změna, ale po migraci výrazně stabilnější.
+
+### Návrh kompromisu pro první verzi
+
+Aby se řešení příliš nevzdálilo současnému stavu:
+
+~~~text
+Teradata MAN_TABLE_RETENTION
+        |
+        v
+jednorazovy Python konvertor
+        |
+        +--> puvodni Teradata WHERE
+        +--> rozpoznany typ pravidla
+        +--> strukturovane parametry
+        +--> vygenerovane BigQuery WHERE
+        +--> stav validace
+        |
+        v
+opr_data.table_retention
+~~~
+
+Při běžném denním provozu už nebude probíhat převod Teradata syntaxe. Denní proces bude pracovat pouze s ověřenými BigQuery pravidly.
+
+Klíčové pravidlo: převod syntaxe je migrační proces, ne součást každodenní retence.
+
+### Doporučený výsledný princip
+
+- Zachovat původní Teradata pravidlo.
+- Automaticky převést známé vzory.
+- Z převodu vytvořit standardní strukturované pravidlo.
+- Vygenerovat BigQuery podmínku.
+- Ověřit ji pomocí SELECT COUNT(*).
+- Manuálně dořešit jen výjimky.
+- Do produkční retence pustit pouze pravidla ve stavu VALIDATED.
