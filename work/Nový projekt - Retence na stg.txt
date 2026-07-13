@@ -1,0 +1,23 @@
+Nový projekt - Retence na stg
+
+aktuálně je to postavené v Teradata tak že máme databázi ep_opr.MAN_TABLE_RETENTION v týhle tabulce pro libovolný objekt, který je v teradatě který je zapojený do našich loadů, může být předpis, který říká jak z ní mazat data typicky přes nějaké časové razítka např.které jsou maximálně 30 dní zpátky.
+
+Tyhle ty ret podmínky pak jsou zapíchnuté do stg loadů a údržbových uzlů datových mártů a edw (target loadu)
+V principu se děje to když se spustí load a load data nahraje tak se v zápětí podívá jestli náhodou v té tabulce není nějaké ret. pravidlo a když ano tak pravidlo aplikuje.
+
+Existují objekty sometimes. Nemusí chodit každý den, ale i na těchto objedktech je rozmuný nějakou retenci provádět.
+
+Je to vlastně postavené tak v případě stg loadu že je to první batch, která se spustní v danném dni pokud v dnešním dni ještě žádná retence neproběhla a retenční pravidlo mám tak to retenční pravidlo udělám.
+
+Nová implementace v nové platformě BQ retence nijak neřeší. 
+Je otázka jak to budeme řídi. Tyhle maintenance joby nespojovat s běžným zpracováním postavit to bokem jako maintenance.
+Ty metadata budou v opr_data v BQ uděláme view do cloude sql - data_stat bude mít svoje view v opr_data jako federovanou query a vedlo teho by byla tabulka retenční.
+Dynamicky nějak generovat ty joby vyjet mi vše co je v retenci zidentfikuj ty které jsou irelevantní pro tento run nasekej tolik a tolik task pak je následně odjet. 
+
+Možná bych na to napsal Python, který by se nechal píchnout do oflow, kde by to mohlo běžet jednou za den a do budoucna by se to mohlo přesadit do airflow
+
+  
+
+
+man_look_up
+

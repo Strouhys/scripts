@@ -56,6 +56,32 @@ WHERE table_schema = 'stg_lnd'
 ORDER BY total_rows DESC;
 ```
 
+## Pokud nechci zobrazit smazane tabulky uchovavane v `TABLE_STORAGE` jeste 7 dni zpetne, provedu JOIN na `o2czed1.stg_lnd.INFORMATION_SCHEMA.TABLES`
+
+```
+SELECT
+  ts.table_catalog AS source_project,
+  ts.table_schema AS source_dataset,
+  ts.table_name AS source_table,
+  ts.creation_time,
+  ts.storage_last_modified_time,
+  ts.total_rows,
+  ts.total_logical_bytes
+FROM `o2czed1.region-europe-west4.INFORMATION_SCHEMA.TABLE_STORAGE` ts
+JOIN `o2czed1.stg_lnd.INFORMATION_SCHEMA.TABLES` t
+  ON
+    ts.table_catalog = t.table_catalog
+    AND ts.table_schema = t.table_schema
+    AND ts.table_name = t.table_name
+WHERE
+  ts.table_schema = 'stg_lnd'
+  AND ts.table_type = 'BASE TABLE'
+  AND REGEXP_CONTAINS(ts.table_name, r'__dq10000__')
+  AND ts.creation_time < TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 12 HOUR)
+  AND ts.total_rows <= 0;
+  ```
+
+
 ## 6. Procedura pro sbirku dat
 
 Nazev procedury: `o2czed1.daq_data.sp_collect_dq10000`
