@@ -170,9 +170,9 @@ Pokud má pravidlo jinou hodnotu, retenční proces ho přeskočí.
 Retenční pravidla mohou mít frekvenci:
 
 ~~~text
-D = denní
-W = týdenní
-M = měsíční
+D = každý den
+W = každou sobotu
+M = první sobotu v měsíci
 ~~~
 
 Zároveň platí, že stejné retenční pravidlo se smí spustit maximálně jednou za kalendářní den.
@@ -192,10 +192,10 @@ Případně lze použít obecnější výraz:
 execution_schedule
 ~~~
 
-Pro první verzi může být podporována jednoduchá logika:
+Pro první verzi je dohodnutá tato interpretační logika:
 - D: každý den,
-- W: konkrétní den v týdnu,
-- M: konkrétní den v měsíci.
+- W: každou sobotu,
+- M: první sobotu v měsíci.
 
 ## 6. Význam placeholderu LOAD_DTTM
 
