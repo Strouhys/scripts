@@ -22,6 +22,7 @@
 - [19. Postup implementace](#19-postup-implementace)
 - [20. Předběžně dohodnutý cílový stav](#20-predbezne-dohodnuty-cilovy-stav)
 - [21. Přepis syntaxe z Teradata do BigQuery](#21-prepis-syntaxe-z-teradata-do-bigquery)
+- [22. Výstupy kroku 2 (DDL + stavový model)](#22-vystupy-kroku-2-ddl--stavovy-model)
 
 ## 1. Cíl řešení
 
@@ -645,6 +646,20 @@ Na základě dosavadní diskuse je navržen tento směr:
 - individuální výjimky budou podporované řízeným CUSTOM_SQL.
 
 ## 21. Přepis syntaxe z Teradata do BigQuery
+
+## 22. Výstupy kroku 2 (DDL + stavový model)
+
+Konkrétní návrh tabulek, partition/clustering, seed stavů a monitorovacích view je připraven v souboru:
+
+~~~text
+sql/retention_ddl.sql
+~~~
+
+Stručný stavový model (RUN/TASK lifecycle, idempotence, retry) je připraven v souboru:
+
+~~~text
+sql/retention_state_model.md
+~~~
 
 Ideální přístup není zachovat Teradata SQL text beze změny, ale zachovat stejný funkční princip:
 

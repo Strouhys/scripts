@@ -21,3 +21,10 @@ Možná bych na to napsal Python, který by se nechal píchnout do oflow, kde by
 
 man_look_up
 
+
+1) odkud to spouštět? (dočasně: MŮŽE to být nový job pod oflow; cílově: nejspíš nějaký nový DAG pod Airflow ???)
+2) jak monitorovat jestli to dojelo/nedojelo? 
+3) jak zajistitm, že to nezkusí spustit ten samý výmaz dvakrát?
+4) - můžou tam být pravidla pro tabulky které jsme ještě něnaimplementovali
+5) retenční pravidla - v cloudsql nebo v BQ? (to jsme asi řešili, nepamatuju se)
+Ještě pár postřehů k těm retencím: frekvence je denní/týdenní/měsíční (execution_frequency); spouštění maximálně jednou za den (na úrovni tabulky); retenční pravidlo se dá vypnout (is_active != 1); je tam použitý placeholder $$LOAD_DTTM, má to historii, v principu si za tím představ "aktuální systémové datum s časem 00:00:00"
