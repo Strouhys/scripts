@@ -25,6 +25,8 @@ Tento soubor eviduje prubezne zmeny SQL casti projektu retenci v BQ.
 - Opraveny collation problemy v regex skriptech pomoci `COLLATE(..., '')`.
 - Opraveno escapovani v generovanych SQL (apostrofy + backslash) pro kompatibilitu s BigQuery parserem.
 - Do `Zadani.md` doplnen odkaz na `sql/opr_data_tabulky_vysvetleni.md`.
+- Rozsireno vysvetleni sloupce `retention_type` v `opr_data_tabulky_vysvetleni.md` (COLUMN_AGE vs CUSTOM_SQL, doporuceni pouziti).
+- Doplneno vysvetleni sloupce `boundary_mode` v `opr_data_tabulky_vysvetleni.md` (LOAD_DTTM vs CURRENT_DATE vs CUSTOM).
 
 ### Opraveno
 - Chyby syntaxe typu:

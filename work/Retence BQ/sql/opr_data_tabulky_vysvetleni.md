@@ -26,6 +26,58 @@ Nejdulesitejsi sloupce:
 - `source_execution_where_clause`: Puvodni Teradata podminka pro audit.
 - `bq_execution_where_clause`: Finalni podminka v BigQuery syntaxi.
 
+### Co presne znamena retention_type
+
+`retention_type` je technicky prepinac logiky v orchestratoru. Podle hodnoty orchestrator rozhoduje, jakym zpusobem se sestavi a provede mazaci podminka.
+
+1. `COLUMN_AGE`
+- Standardni sablonove pravidlo.
+- Ocekava vyplnene parametry:
+	- `retention_column`
+	- `retention_value`
+	- `retention_unit`
+	- typicky `boundary_mode = LOAD_DTTM`
+- Orchestrator z techto parametru sestavi podminku automaticky.
+- Typicky vyznam: "smaz data starsi nez X dni/mesicu/let".
+
+2. `CUSTOM_SQL`
+- Vyjimkovy rezim pro slozitejsi logiku.
+- Orchestrator nepouzije sablonu, ale spousti podminku z `bq_execution_where_clause`.
+- Vhodne pro komplexni pravidla (napr. vice podminek OR, specialni business logika, specificke CDC vzory).
+
+### Prakticke doporuceni
+
+- Preferovat `COLUMN_AGE` vsude, kde to jde.
+- `CUSTOM_SQL` pouzivat jen tam, kde sablona nestaci.
+- Duvod:
+	- `COLUMN_AGE` je jednodussi na validaci, audit a dlouhodobou udrzbu.
+	- `CUSTOM_SQL` je flexibilnejsi, ale nese vyssi riziko chyb.
+
+### Co presne znamena boundary_mode
+
+`boundary_mode` urcuje, vuci jakemu referencnimu bodu se u pravidla pocita hranice mazani.
+
+Nejcastejsi hodnoty:
+
+1. `LOAD_DTTM`
+- Hranice se pocita vuci `retention_reference_dttm` daneho runu.
+- Vhodne pro stabilni denni provoz, kdy vsechna pravidla v jednom runu pouziji stejny referencni cas.
+- Nejbeznejsi volba u `COLUMN_AGE`.
+
+2. `CURRENT_DATE`
+- Hranice se odviji od aktualniho data v okamziku provedeni.
+- Je potreba opatrnost pri dlouho bezicich runech (muze nastat prechod dne).
+- Pouzivat jen kde je to business pozadavek.
+
+3. `CUSTOM`
+- Hranice je soucasti vlastni logiky v `bq_execution_where_clause`.
+- Typicke pro slozite `CUSTOM_SQL` podminky.
+
+Prakticke pravidlo:
+
+- Pokud to jde, preferovat `LOAD_DTTM`, protoze je nejlepe auditovatelny a konzistentni v ramci celeho runu.
+- `CURRENT_DATE` a `CUSTOM` pouzivat pouze tam, kde to vyzaduje konkretni logika pravidla.
+
 Poznamka:
 - `source_execution_where_clause` je auditni stopa.
 - `bq_execution_where_clause` je to, co ma orchestrator vykonavat.
