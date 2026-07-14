@@ -23,6 +23,7 @@
 - [20. Předběžně dohodnutý cílový stav](#20-predbezne-dohodnuty-cilovy-stav)
 - [21. Přepis syntaxe z Teradata do BigQuery](#21-prepis-syntaxe-z-teradata-do-bigquery)
 - [22. Výstupy kroku 2 (DDL + stavový model)](#22-vystupy-kroku-2-ddl--stavovy-model)
+- [23. Vysvětlení tabulek v opr_data](#23-vysvetleni-tabulek-v-opr_data)
 
 ## 1. Cíl řešení
 
@@ -659,6 +660,14 @@ Stručný stavový model (RUN/TASK lifecycle, idempotence, retry) je připraven 
 
 ~~~text
 sql/retention_state_model.md
+~~~
+
+## 23. Vysvětlení tabulek v opr_data
+
+Samostatný popis založených tabulek a view v datasetu `opr_data` je v dokumentu:
+
+~~~text
+sql/opr_data_tabulky_vysvetleni.md
 ~~~
 
 Ideální přístup není zachovat Teradata SQL text beze změny, ale zachovat stejný funkční princip:

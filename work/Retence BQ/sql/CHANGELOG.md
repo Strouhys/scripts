@@ -14,6 +14,7 @@ Tento soubor eviduje prubezne zmeny SQL casti projektu retenci v BQ.
 - Dotaz na zbyvajici pravidla po auto-update v `retention_custom_remaining_after_updates.sql`.
 - Finalni validacni skript pred go-live v `retention_final_validation.sql`.
 - Dokumentace orientace ve slozce SQL v `README.md`.
+- Samostatne vysvetleni zalozenych tabulek a view v `opr_data_tabulky_vysvetleni.md`.
 
 ### Zmeneno
 - DDL objekty byly plne kvalifikovany na projekt `o2czed1`.
@@ -23,6 +24,7 @@ Tento soubor eviduje prubezne zmeny SQL casti projektu retenci v BQ.
   - `bq_execution_where_clause`
 - Opraveny collation problemy v regex skriptech pomoci `COLLATE(..., '')`.
 - Opraveno escapovani v generovanych SQL (apostrofy + backslash) pro kompatibilitu s BigQuery parserem.
+- Do `Zadani.md` doplnen odkaz na `sql/opr_data_tabulky_vysvetleni.md`.
 
 ### Opraveno
 - Chyby syntaxe typu:
