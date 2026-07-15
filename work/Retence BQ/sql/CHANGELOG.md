@@ -28,6 +28,16 @@ Tento soubor eviduje prubezne zmeny SQL casti projektu retenci v BQ.
 - Rozsireno vysvetleni sloupce `retention_type` v `opr_data_tabulky_vysvetleni.md` (COLUMN_AGE vs CUSTOM_SQL, doporuceni pouziti).
 - Doplneno vysvetleni sloupce `boundary_mode` v `opr_data_tabulky_vysvetleni.md` (LOAD_DTTM vs CURRENT_DATE vs CUSTOM).
 
+## 2026-07-15
+
+### Pridano
+- Python MVP orchestrator v `orchestrator/retention_orchestrator.py`.
+- Runbook ke spousteni orchestratoru v `orchestrator/README.md`.
+- Zavislost `google-cloud-bigquery` v `requirements.txt`.
+
+### Poznamka
+- Priorita vyvoje byla presunuta na funkcni orchestrator a connectivity testy; manualni doladeni zbyvajicich CUSTOM pravidel zustava az na zaver test faze.
+
 ### Opraveno
 - Chyby syntaxe typu:
   - concatenated string literals
