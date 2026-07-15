@@ -13,7 +13,8 @@ WITH base AS (
   SELECT
     retention_rule_id,
     project_id,
-    dataset_name,
+    source_dataset_name,
+    bq_dataset_name,
     table_name,
     is_active,
     execution_frequency,
@@ -66,6 +67,18 @@ issues AS (
   SELECT retention_rule_id, 'COLUMN_AGE_BOUNDARY_MODE_INVALID'
   FROM base
   WHERE retention_type = 'COLUMN_AGE' AND boundary_mode NOT IN ('LOAD_DTTM', 'CURRENT_DATE', 'CUSTOM')
+
+  UNION ALL
+  SELECT retention_rule_id, 'ACTIVE_RULE_WITHOUT_BQ_DATASET_MAPPING'
+  FROM base
+  WHERE is_active = TRUE
+    AND (bq_dataset_name IS NULL OR TRIM(COLLATE(bq_dataset_name, '')) = '')
+
+  UNION ALL
+  SELECT retention_rule_id, 'BQ_DATASET_EQUALS_SOURCE_DATASET'
+  FROM base
+  WHERE bq_dataset_name IS NOT NULL
+    AND LOWER(COLLATE(bq_dataset_name, '')) = LOWER(COLLATE(source_dataset_name, ''))
 
   UNION ALL
   SELECT retention_rule_id, 'CUSTOM_SQL_BQ_WHERE_MISSING'
@@ -123,7 +136,8 @@ WITH base AS (
   SELECT
     retention_rule_id,
     project_id,
-    dataset_name,
+    source_dataset_name,
+    bq_dataset_name,
     table_name,
     is_active,
     execution_frequency,
@@ -176,6 +190,18 @@ issues AS (
   WHERE retention_type = 'COLUMN_AGE' AND boundary_mode NOT IN ('LOAD_DTTM', 'CURRENT_DATE', 'CUSTOM')
 
   UNION ALL
+  SELECT retention_rule_id, 'ACTIVE_RULE_WITHOUT_BQ_DATASET_MAPPING'
+  FROM base
+  WHERE is_active = TRUE
+    AND (bq_dataset_name IS NULL OR TRIM(COLLATE(bq_dataset_name, '')) = '')
+
+  UNION ALL
+  SELECT retention_rule_id, 'BQ_DATASET_EQUALS_SOURCE_DATASET'
+  FROM base
+  WHERE bq_dataset_name IS NOT NULL
+    AND LOWER(COLLATE(bq_dataset_name, '')) = LOWER(COLLATE(source_dataset_name, ''))
+
+  UNION ALL
   SELECT retention_rule_id, 'CUSTOM_SQL_BQ_WHERE_MISSING'
   FROM base
   WHERE retention_type = 'CUSTOM_SQL' AND bq_execution_where_clause IS NULL
@@ -220,7 +246,8 @@ SELECT
   i.issue_code,
   b.retention_rule_id,
   b.project_id,
-  b.dataset_name,
+  b.source_dataset_name,
+  b.bq_dataset_name,
   b.table_name,
   b.is_active,
   b.execution_frequency,
@@ -238,7 +265,7 @@ SELECT
 FROM issues i
 JOIN base b
   ON b.retention_rule_id = i.retention_rule_id
-ORDER BY i.issue_code, b.dataset_name, b.table_name, b.retention_rule_id;
+ORDER BY i.issue_code, b.source_dataset_name, b.table_name, b.retention_rule_id;
 
 
 -- =========================================================

@@ -132,7 +132,8 @@ Předběžný obsah tabulky:
 ~~~text
 retention_rule_id
 project_id
-dataset_name
+source_dataset_name
+bq_dataset_name
 table_name
 is_active
 execution_frequency

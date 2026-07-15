@@ -65,13 +65,17 @@ class Config:
     filter_target_project: Optional[str]
     filter_target_dataset: Optional[str]
     filter_target_table: Optional[str]
+    allow_retention_override: bool
+    override_retention_value: Optional[int]
+    override_retention_unit: Optional[str]
 
 
 @dataclass
 class Rule:
     retention_rule_id: str
     project_id: str
-    dataset_name: str
+    source_dataset_name: str
+    bq_dataset_name: Optional[str]
     table_name: str
     execution_frequency: str
     execution_day_of_week: Optional[int]
@@ -80,6 +84,7 @@ class Rule:
     retention_column: Optional[str]
     retention_value: Optional[int]
     retention_unit: Optional[str]
+    column_data_type: Optional[str]
     boundary_mode: Optional[str]
     source_execution_where_clause: Optional[str]
     bq_execution_where_clause: Optional[str]
@@ -178,7 +183,7 @@ class RetentionOrchestrator:
             )
 
         if self.cfg.filter_target_dataset:
-            where_clauses.append("dataset_name = @filter_target_dataset")
+            where_clauses.append("bq_dataset_name = @filter_target_dataset")
             query_params.append(
                 bigquery.ScalarQueryParameter("filter_target_dataset", "STRING", self.cfg.filter_target_dataset)
             )
@@ -194,7 +199,8 @@ class RetentionOrchestrator:
         SELECT
           retention_rule_id,
           project_id,
-          dataset_name,
+                    source_dataset_name,
+                    bq_dataset_name,
           table_name,
           execution_frequency,
           execution_day_of_week,
@@ -203,6 +209,7 @@ class RetentionOrchestrator:
           retention_column,
           retention_value,
           retention_unit,
+          column_data_type,
           boundary_mode,
           source_execution_where_clause,
           bq_execution_where_clause
@@ -218,7 +225,8 @@ class RetentionOrchestrator:
                 Rule(
                     retention_rule_id=r["retention_rule_id"],
                     project_id=r["project_id"],
-                    dataset_name=r["dataset_name"],
+                    source_dataset_name=r["source_dataset_name"],
+                    bq_dataset_name=(r["bq_dataset_name"] or "").strip() if r["bq_dataset_name"] else None,
                     table_name=r["table_name"],
                     execution_frequency=(r["execution_frequency"] or "").strip().upper(),
                     execution_day_of_week=r["execution_day_of_week"],
@@ -227,6 +235,7 @@ class RetentionOrchestrator:
                     retention_column=r["retention_column"],
                     retention_value=r["retention_value"],
                     retention_unit=(r["retention_unit"] or "").strip().upper() if r["retention_unit"] else None,
+                    column_data_type=(r["column_data_type"] or "").strip().upper() if r["column_data_type"] else None,
                     boundary_mode=(r["boundary_mode"] or "").strip().upper() if r["boundary_mode"] else None,
                     source_execution_where_clause=r["source_execution_where_clause"],
                     bq_execution_where_clause=r["bq_execution_where_clause"],
@@ -247,37 +256,42 @@ class RetentionOrchestrator:
             return self.cfg.execution_date.isoweekday() == 6 and self.cfg.execution_date.day <= 7
         return False
 
-    def table_exists(self, project_id: str, dataset: str, table: str) -> tuple[bool, str]:
+    def resolve_table_name(self, project_id: str, dataset: str, table: str) -> tuple[bool, str, Optional[str]]:
         sql = f"""
-        SELECT COUNT(1) AS cnt
+        SELECT table_name
         FROM `{project_id}.{dataset}.INFORMATION_SCHEMA.TABLES`
-        WHERE table_name = @table_name
+        WHERE LOWER(table_name) = LOWER(@table_name)
+        LIMIT 1
         """
         params = [bigquery.ScalarQueryParameter("table_name", "STRING", table)]
         try:
-            row = next(iter(self._query(sql, params)))
-            if row["cnt"] > 0:
-                return True, "TABLE_FOUND"
-            return False, "TABLE_NOT_FOUND"
+            rows = list(self._query(sql, params))
+            if rows:
+                return True, "TABLE_FOUND", rows[0]["table_name"]
+            return False, "TABLE_NOT_FOUND", None
         except gexc.NotFound:
-            return False, "DATASET_NOT_MIGRATED"
+            return False, "DATASET_NOT_MIGRATED", None
 
-    def column_exists(self, project_id: str, dataset: str, table: str, column: str) -> bool:
+    def resolve_column_metadata(self, project_id: str, dataset: str, table: str, column: str) -> tuple[bool, Optional[str], Optional[str]]:
         sql = f"""
-        SELECT COUNT(1) AS cnt
+        SELECT column_name, data_type
         FROM `{project_id}.{dataset}.INFORMATION_SCHEMA.COLUMNS`
-        WHERE table_name = @table_name
-          AND column_name = @column_name
+        WHERE LOWER(table_name) = LOWER(@table_name)
+          AND LOWER(column_name) = LOWER(@column_name)
+        LIMIT 1
         """
         params = [
             bigquery.ScalarQueryParameter("table_name", "STRING", table),
             bigquery.ScalarQueryParameter("column_name", "STRING", column),
         ]
         try:
-            row = next(iter(self._query(sql, params)))
-            return row["cnt"] > 0
+            rows = list(self._query(sql, params))
+            if not rows:
+                return False, None, None
+            row = rows[0]
+            return True, row["column_name"], (row["data_type"] or "").strip().upper() if row["data_type"] else None
         except gexc.NotFound:
-            return False
+            return False, None, None
 
     def already_processed(self, unique_task_key: str) -> bool:
         sql = f"""
@@ -290,7 +304,7 @@ class RetentionOrchestrator:
         row = next(iter(self._query(sql, params)))
         return row["cnt"] > 0
 
-    def insert_task(self, rule: Rule, status: str, status_reason: Optional[str], generated_sql: Optional[str], error_message: Optional[str], affected_rows: Optional[int], is_retry: bool = False, retry_of_task_run_id: Optional[str] = None) -> None:
+    def insert_task(self, rule: Rule, status: str, status_reason: Optional[str], generated_sql: Optional[str], error_message: Optional[str], affected_rows: Optional[int], target_dataset_name: Optional[str], is_retry: bool = False, retry_of_task_run_id: Optional[str] = None) -> None:
         task_run_id = str(uuid.uuid4())
         unique_key = f"{rule.retention_rule_id}|{self.cfg.execution_date.isoformat()}"
         sql = f"""
@@ -309,7 +323,7 @@ class RetentionOrchestrator:
             bigquery.ScalarQueryParameter("execution_date", "DATE", self.cfg.execution_date.isoformat()),
             bigquery.ScalarQueryParameter("retention_rule_id", "STRING", rule.retention_rule_id),
             bigquery.ScalarQueryParameter("project_id", "STRING", rule.project_id),
-            bigquery.ScalarQueryParameter("dataset_name", "STRING", rule.dataset_name),
+            bigquery.ScalarQueryParameter("dataset_name", "STRING", target_dataset_name),
             bigquery.ScalarQueryParameter("table_name", "STRING", rule.table_name),
             bigquery.ScalarQueryParameter("status", "STRING", status),
             bigquery.ScalarQueryParameter("status_reason", "STRING", status_reason),
@@ -324,13 +338,35 @@ class RetentionOrchestrator:
 
     def build_where_clause(self, rule: Rule) -> Optional[str]:
         if rule.retention_type == "COLUMN_AGE":
-            if not rule.retention_column or rule.retention_value is None or not rule.retention_unit:
+            effective_value = rule.retention_value
+            effective_unit = rule.retention_unit
+            effective_column_type = rule.column_data_type or "TIMESTAMP"
+
+            if self.cfg.allow_retention_override and self.cfg.override_retention_value is not None:
+                effective_value = self.cfg.override_retention_value
+            if self.cfg.allow_retention_override and self.cfg.override_retention_unit is not None:
+                effective_unit = self.cfg.override_retention_unit
+
+            if not rule.retention_column or effective_value is None or not effective_unit:
                 return None
-            if rule.retention_unit not in {"DAY", "MONTH", "YEAR"}:
+            if effective_unit not in {"DAY", "MONTH", "YEAR"}:
                 return None
+
+            if effective_column_type == "DATE":
+                return (
+                    f"{rule.retention_column} < "
+                    f"DATE_SUB(DATE(@retention_reference_dttm), INTERVAL {effective_value} {effective_unit})"
+                )
+
+            if effective_column_type == "DATETIME":
+                return (
+                    f"{rule.retention_column} < "
+                    f"DATETIME_SUB(@retention_reference_dttm, INTERVAL {effective_value} {effective_unit})"
+                )
+
             return (
                 f"{rule.retention_column} < "
-                f"TIMESTAMP_SUB(TIMESTAMP(@retention_reference_dttm), INTERVAL {rule.retention_value} {rule.retention_unit})"
+                f"TIMESTAMP_SUB(TIMESTAMP(@retention_reference_dttm), INTERVAL {effective_value} {effective_unit})"
             )
 
         if rule.retention_type == "CUSTOM_SQL":
@@ -340,8 +376,8 @@ class RetentionOrchestrator:
 
         return None
 
-    def execute_delete(self, rule: Rule, where_clause: str) -> int:
-        sql = f"DELETE FROM `{rule.project_id}.{rule.dataset_name}.{rule.table_name}` WHERE {where_clause}"
+    def execute_delete(self, rule: Rule, target_dataset_name: str, where_clause: str) -> int:
+        sql = f"DELETE FROM `{rule.project_id}.{target_dataset_name}.{rule.table_name}` WHERE {where_clause}"
         params = [
             bigquery.ScalarQueryParameter("retention_reference_dttm", "DATETIME", self.reference_dttm)
         ]
@@ -355,50 +391,108 @@ class RetentionOrchestrator:
 
     def process_rule(self, rule: Rule) -> None:
         unique_key = f"{rule.retention_rule_id}|{self.cfg.execution_date.isoformat()}"
+        target_dataset_name = rule.bq_dataset_name
 
         if not self.should_run_today(rule):
             self.task_skipped += 1
-            self.insert_task(rule, SKIPPED_FREQUENCY, "NOT_SCHEDULED_TODAY", None, None, None)
+            self.insert_task(rule, SKIPPED_FREQUENCY, "NOT_SCHEDULED_TODAY", None, None, None, target_dataset_name)
             return
 
         if self.already_processed(unique_key):
             self.task_skipped += 1
-            self.insert_task(rule, SKIPPED_ALREADY_SUCCESS, "ALREADY_SUCCESS_OR_RUNNING", None, None, None)
+            self.insert_task(rule, SKIPPED_ALREADY_SUCCESS, "ALREADY_SUCCESS_OR_RUNNING", None, None, None, target_dataset_name)
             return
 
-        table_found, missing_reason = self.table_exists(rule.project_id, rule.dataset_name, rule.table_name)
+        if not target_dataset_name:
+            self.task_skipped += 1
+            self.insert_task(rule, SKIPPED_TABLE_NOT_FOUND, "DATASET_NOT_MIGRATED", None, None, None, target_dataset_name)
+            return
+
+        table_found, missing_reason, resolved_table_name = self.resolve_table_name(rule.project_id, target_dataset_name, rule.table_name)
         if not table_found:
             self.task_skipped += 1
-            self.insert_task(rule, SKIPPED_TABLE_NOT_FOUND, missing_reason, None, None, None)
+            self.insert_task(rule, SKIPPED_TABLE_NOT_FOUND, missing_reason, None, None, None, target_dataset_name)
             return
 
+        effective_table_name = resolved_table_name or rule.table_name
+
+        effective_rule = rule
+
         if rule.retention_type == "COLUMN_AGE":
-            if not rule.retention_column or not self.column_exists(rule.project_id, rule.dataset_name, rule.table_name, rule.retention_column):
+            if not rule.retention_column:
                 self.task_skipped += 1
-                self.insert_task(rule, SKIPPED_COLUMN_NOT_FOUND, "RETENTION_COLUMN_NOT_FOUND", None, None, None)
+                self.insert_task(rule, SKIPPED_COLUMN_NOT_FOUND, "RETENTION_COLUMN_NOT_FOUND", None, None, None, target_dataset_name)
                 return
 
-        where_clause = self.build_where_clause(rule)
+            column_found, resolved_column_name, resolved_column_type = self.resolve_column_metadata(
+                rule.project_id,
+                target_dataset_name,
+                effective_table_name,
+                rule.retention_column,
+            )
+            if not column_found:
+                self.task_skipped += 1
+                self.insert_task(rule, SKIPPED_COLUMN_NOT_FOUND, "RETENTION_COLUMN_NOT_FOUND", None, None, None, target_dataset_name)
+                return
+
+            effective_rule = Rule(
+                retention_rule_id=rule.retention_rule_id,
+                project_id=rule.project_id,
+                source_dataset_name=rule.source_dataset_name,
+                bq_dataset_name=rule.bq_dataset_name,
+                table_name=effective_table_name,
+                execution_frequency=rule.execution_frequency,
+                execution_day_of_week=rule.execution_day_of_week,
+                execution_day_of_month=rule.execution_day_of_month,
+                retention_type=rule.retention_type,
+                retention_column=resolved_column_name,
+                retention_value=rule.retention_value,
+                retention_unit=rule.retention_unit,
+                column_data_type=resolved_column_type or rule.column_data_type,
+                boundary_mode=rule.boundary_mode,
+                source_execution_where_clause=rule.source_execution_where_clause,
+                bq_execution_where_clause=rule.bq_execution_where_clause,
+            )
+
+        where_clause = self.build_where_clause(effective_rule)
         if not where_clause:
             status = SKIPPED_NOT_IMPLEMENTED if rule.retention_type not in {"COLUMN_AGE", "CUSTOM_SQL"} else SKIPPED_VALIDATION
             self.task_skipped += 1
-            self.insert_task(rule, status, "WHERE_CLAUSE_NOT_AVAILABLE", None, None, None)
+            self.insert_task(rule, status, "WHERE_CLAUSE_NOT_AVAILABLE", None, None, None, target_dataset_name)
             return
 
-        delete_sql = f"DELETE FROM `{rule.project_id}.{rule.dataset_name}.{rule.table_name}` WHERE {where_clause}"
+        delete_sql = f"DELETE FROM `{rule.project_id}.{target_dataset_name}.{effective_table_name}` WHERE {where_clause}"
 
         if self.cfg.dry_run:
             self.task_success += 1
-            self.insert_task(rule, SUCCESS, "DRY_RUN_NO_DELETE", delete_sql, None, 0)
+            self.insert_task(rule, SUCCESS, "DRY_RUN_NO_DELETE", delete_sql, None, 0, target_dataset_name)
             return
 
         try:
-            affected = self.execute_delete(rule, where_clause)
+            rule_for_delete = Rule(
+                retention_rule_id=effective_rule.retention_rule_id,
+                project_id=effective_rule.project_id,
+                source_dataset_name=effective_rule.source_dataset_name,
+                bq_dataset_name=effective_rule.bq_dataset_name,
+                table_name=effective_table_name,
+                execution_frequency=effective_rule.execution_frequency,
+                execution_day_of_week=effective_rule.execution_day_of_week,
+                execution_day_of_month=effective_rule.execution_day_of_month,
+                retention_type=effective_rule.retention_type,
+                retention_column=effective_rule.retention_column,
+                retention_value=effective_rule.retention_value,
+                retention_unit=effective_rule.retention_unit,
+                column_data_type=effective_rule.column_data_type,
+                boundary_mode=effective_rule.boundary_mode,
+                source_execution_where_clause=effective_rule.source_execution_where_clause,
+                bq_execution_where_clause=effective_rule.bq_execution_where_clause,
+            )
+            affected = self.execute_delete(rule_for_delete, target_dataset_name, where_clause)
             self.task_success += 1
-            self.insert_task(rule, SUCCESS, "DELETE_EXECUTED", delete_sql, None, affected)
+            self.insert_task(rule, SUCCESS, "DELETE_EXECUTED", delete_sql, None, affected, target_dataset_name)
         except Exception as exc:
             self.task_failed += 1
-            self.insert_task(rule, FAILED, "DELETE_FAILED", delete_sql, str(exc), None)
+            self.insert_task(rule, FAILED, "DELETE_FAILED", delete_sql, str(exc), None, target_dataset_name)
 
     def run(self) -> int:
         logging.info("Starting run_id=%s execution_date=%s dry_run=%s", self.run_id, self.cfg.execution_date, self.cfg.dry_run)
@@ -423,6 +517,15 @@ class RetentionOrchestrator:
                 )
             else:
                 logging.info("Rule filter disabled; loading full active set from retention table")
+
+            if self.cfg.allow_retention_override and (
+                self.cfg.override_retention_value is not None or self.cfg.override_retention_unit is not None
+            ):
+                logging.warning(
+                    "Retention override enabled value=%s unit=%s (COLUMN_AGE only)",
+                    self.cfg.override_retention_value,
+                    self.cfg.override_retention_unit,
+                )
 
             rules = self.load_rules()
             logging.info("Loaded %d active rules", len(rules))
@@ -468,6 +571,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--target-project", help="Filter rules by target project_id")
     parser.add_argument("--target-dataset", help="Filter rules by target dataset_name")
     parser.add_argument("--target-table", help="Filter rules by target table_name")
+    parser.add_argument("--allow-retention-override", action="store_true", help="Allow temporary override of retention_value/retention_unit for testing")
+    parser.add_argument("--override-retention-value", type=int, help="Temporary override of retention_value for COLUMN_AGE rules")
+    parser.add_argument("--override-retention-unit", choices=["DAY", "MONTH", "YEAR"], help="Temporary override of retention_unit for COLUMN_AGE rules")
     parser.add_argument("--dry-run", action="store_true", help="Do not execute DELETE statements")
     parser.add_argument("--log-level", choices=["DEBUG", "INFO", "WARNING", "ERROR"])
     return parser.parse_args()
@@ -501,6 +607,24 @@ def build_config(args: argparse.Namespace) -> Config:
     filter_target_dataset = env_or_arg(args.target_dataset, "RETENTION_TARGET_DATASET")
     filter_target_table = env_or_arg(args.target_table, "RETENTION_TARGET_TABLE")
 
+    allow_retention_override = args.allow_retention_override or parse_env_bool("RETENTION_ALLOW_OVERRIDE", False)
+    override_retention_value = args.override_retention_value if args.override_retention_value is not None else parse_env_int("RETENTION_OVERRIDE_VALUE", None)
+    override_retention_unit = env_or_arg(args.override_retention_unit, "RETENTION_OVERRIDE_UNIT")
+    if override_retention_unit:
+        override_retention_unit = override_retention_unit.strip().upper()
+
+    if (override_retention_value is not None or override_retention_unit is not None) and not allow_retention_override:
+        raise ValueError(
+            "Retention override requested but not enabled. Set --allow-retention-override "
+            "or RETENTION_ALLOW_OVERRIDE=true."
+        )
+
+    if override_retention_value is not None and override_retention_value <= 0:
+        raise ValueError("override-retention-value must be > 0")
+
+    if override_retention_unit and override_retention_unit not in {"DAY", "MONTH", "YEAR"}:
+        raise ValueError("override-retention-unit must be one of DAY, MONTH, YEAR")
+
     if weekly_run_day < 1 or weekly_run_day > 7:
         raise ValueError("weekly-run-day must be in range 1..7")
 
@@ -517,6 +641,9 @@ def build_config(args: argparse.Namespace) -> Config:
         filter_target_project=filter_target_project,
         filter_target_dataset=filter_target_dataset,
         filter_target_table=filter_target_table,
+        allow_retention_override=allow_retention_override,
+        override_retention_value=override_retention_value,
+        override_retention_unit=override_retention_unit,
     )
 
 

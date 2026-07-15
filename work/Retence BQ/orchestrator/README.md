@@ -72,11 +72,26 @@ RETENTION_RULE_ID=
 RETENTION_TARGET_PROJECT=
 RETENTION_TARGET_DATASET=
 RETENTION_TARGET_TABLE=
+
+# Test override retention (COLUMN_AGE only)
+RETENTION_ALLOW_OVERRIDE=false
+RETENTION_OVERRIDE_VALUE=
+RETENTION_OVERRIDE_UNIT=
 ```
 
 Chovani filtru:
 - pokud je nastaveno alespon jedno z `RETENTION_RULE_ID`, `RETENTION_TARGET_PROJECT`, `RETENTION_TARGET_DATASET`, `RETENTION_TARGET_TABLE`, orchestrator spusti jen odpovidajici podmnozinu pravidel
 - pokud neni nastaven zadny filtr, orchestrator zpracuje cely aktivni obsah `o2czed1.opr_data.table_retention`
+
+Mapovani datasetu:
+- `source_dataset_name` = puvodni dataset z Teradata evidence
+- `bq_dataset_name` = realny cilovy dataset v BigQuery
+- orchestrator vzdy pouziva `bq_dataset_name`; pokud je prazdny, pravidlo se preskoci se `status_reason=DATASET_NOT_MIGRATED`
+
+Test override retention:
+- `RETENTION_OVERRIDE_VALUE` a `RETENTION_OVERRIDE_UNIT` plati jen pro `COLUMN_AGE`
+- override je aktivni jen kdyz `RETENTION_ALLOW_OVERRIDE=true` (bezpecnost proti nechtenemu pouziti)
+- doporuceno kombinovat s `RETENTION_RULE_ID` a `RETENTION_DRY_RUN=true`
 
 ## Example runs
 
@@ -104,10 +119,18 @@ Spusteni pouze pro jednu konkretni tabulku:
 python .\orchestrator\retention_orchestrator.py --project-id o2czed1 --dataset opr_data --target-project o2czed1 --target-dataset opr_data --target-table nazev_tabulky --dry-run
 ```
 
+Poznamka: `--target-dataset` filtruje `bq_dataset_name`.
+
 Spusteni pouze pro jedno konkretni pravidlo:
 
 ```powershell
 python .\orchestrator\retention_orchestrator.py --project-id o2czed1 --dataset opr_data --rule-id TD_AP_DM_CES_DEL_EVENT_00439 --dry-run
+```
+
+Simulace testu s docasnym prepsanim retention_value na 15 DAY:
+
+```powershell
+python .\orchestrator\retention_orchestrator.py --project-id o2czed1 --dataset opr_data --rule-id TD_AP_STG_EBOX_VIEWS_V2_00003 --execution-date 2026-05-08 --dry-run --allow-retention-override --override-retention-value 15 --override-retention-unit DAY
 ```
 
 ## Notes

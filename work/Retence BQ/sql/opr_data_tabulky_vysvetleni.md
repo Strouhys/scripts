@@ -19,7 +19,10 @@ Ucel:
 
 Nejdulesitejsi sloupce:
 - `retention_rule_id`: Jedinecny identifikator pravidla.
-- `project_id`, `dataset_name`, `table_name`: Cíl pravidla.
+- `project_id`, `source_dataset_name`, `bq_dataset_name`, `table_name`: Cíl pravidla.
+	- `source_dataset_name` = puvodni dataset z Teradata evidence.
+	- `bq_dataset_name` = realny cilovy dataset v BigQuery.
+	- prazdny `bq_dataset_name` znamena, ze dataset jeste neni premigrovany.
 - `is_active`: Zapnuto/vypnuto.
 - `execution_frequency`: D/W/M.
 - `retention_type`: Typ pravidla (napr. COLUMN_AGE, CUSTOM_SQL).

@@ -14,18 +14,23 @@ Tento adresar obsahuje SQL skripty pro retention maintenance proces v BigQuery.
   - monitoring view
 - Kdy pouzit: pri inicializaci prostredi nebo pri rizenych schema zmenach.
 
-### 2) retention_custom_auto_updates.sql
-- Ucel: hromadny automaticky update casti migrovanych CUSTOM_SQL pravidel.
+### 1a) retention_dataset_mapping_migration.sql
+- Ucel: prechod `table_retention` na model `source_dataset_name` + `bq_dataset_name`.
 - Co dela:
-  - upravy nejcastejsi vzory (CDC OR, operation-only, Current_Date, add_months, SELECT MAX)
-  - deaktivuje explicitni pravidla s `nemazat`
-- Kdy pouzit: po nahrani seed dat a pred rucnim doladenim zbytku pravidel.
+  - rename `dataset_name` -> `source_dataset_name`
+  - prida `bq_dataset_name`
+  - predvyplni mapovani `ap_stg -> stg_data`
+- Kdy pouzit: jednorazove po nasazeni nove verze orchestratoru.
 
-### 3) retention_custom_remaining_after_updates.sql
-- Ucel: vypis pravidel, ktera po auto-update stale vyzaduji manualni kontrolu.
-- Kdy pouzit: hned po `retention_custom_auto_updates.sql`.
+### 1b) retention_column_age_refresh.sql
+- Ucel: sladeni `COLUMN_AGE` metadat se skutecnym typem sloupce v BigQuery.
+- Co dela:
+  - nacita realne `data_type` z `INFORMATION_SCHEMA.COLUMNS`
+  - aktualizuje `column_data_type`
+  - pregeneruje `bq_execution_where_clause`
+- Kdy pouzit: po doplneni `bq_dataset_name` mapovani a vzdy po nove migraci datasetu.
 
-### 4) retention_final_validation.sql
+### 2) retention_final_validation.sql
 - Ucel: finalni quality gate pred go-live.
 - Obsah:
   - souhrn problemu podle issue_code
@@ -36,10 +41,9 @@ Tento adresar obsahuje SQL skripty pro retention maintenance proces v BigQuery.
 ## Doporucene poradi spousteni
 
 1. `retention_ddl.sql`
-2. (po seed importu) `retention_custom_auto_updates.sql`
-3. `retention_custom_remaining_after_updates.sql`
-4. manualni opravy zbyvajicich pravidel
-5. `retention_final_validation.sql`
+2. `retention_dataset_mapping_migration.sql` (pokud jeste nebylo provedeno)
+3. `retention_column_age_refresh.sql`
+4. `retention_final_validation.sql`
 
 ## Co znamena "pripraveno na go-live"
 
@@ -51,11 +55,11 @@ Minimalni podminky:
 ## Struktura adresaru
 
 - `sql/` = aktivne pouzivane provozni skripty.
-- `sql/archive/` = jednorazove migracni artefakty a historie (neprovozni).
-- `tools/` = pomocne PowerShell skripty pro regeneraci seed/migracnich dat.
+- `sql/archive/` = jednorazove migracni artefakty, helper SQL a historie (neprovozni).
+- `tools/archive/` = pomocne PowerShell skripty pro puvodni seed/migracni fazi (neprovozni).
 - `sql/CHANGELOG.md` = prubezna evidence zmen v SQL casti projektu.
 
 ## Poznamky pro budoucnost
 
-- Pokud se bude migrovat nova davka pravidel z Teradata exportu, pouzijte skripty v `tools/` a vysledky umistete nejprve do `sql/archive/`.
+- Pokud se bude migrovat nova davka pravidel z Teradata exportu, puvodni helpery najdete v `tools/archive/` a vysledky umistete nejprve do `sql/archive/`.
 - Aktivni provozni skripty drzte v koreni `sql/`, aby zustalo jasne, co se ma spoustet v produkcnim provozu.

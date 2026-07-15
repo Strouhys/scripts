@@ -42,6 +42,12 @@ function Sanitize-Id([string]$Value) {
   return $v
 }
 
+function Map-BqDatasetName([string]$SourceDataset) {
+  $src = (Norm $SourceDataset).ToLowerInvariant()
+  if ($src -eq "ap_stg") { return "stg_data" }
+  return $null
+}
+
 function Convert-TeradataWhere([string]$WhereClause) {
   $w = Norm $WhereClause
   if ([string]::IsNullOrWhiteSpace($w)) {
@@ -130,7 +136,8 @@ $sqlLines.Add("")
 $sqlLines.Add("INSERT INTO `o2czed1.opr_data.table_retention` (")
 $sqlLines.Add("  retention_rule_id,")
 $sqlLines.Add("  project_id,")
-$sqlLines.Add("  dataset_name,")
+$sqlLines.Add("  source_dataset_name,")
+$sqlLines.Add("  bq_dataset_name,")
 $sqlLines.Add("  table_name,")
 $sqlLines.Add("  is_active,")
 $sqlLines.Add("  execution_frequency,")
@@ -160,6 +167,7 @@ foreach ($r in $rows) {
   $idx++
 
   $dataset = Norm $r.database_name
+  $bqDataset = Map-BqDatasetName $dataset
   $table = Norm $r.table_name
   $freq = To-Frequency $r.execution_frequency
   $isActive = To-BoolLiteral $r.is_active
@@ -182,6 +190,7 @@ foreach ($r in $rows) {
     (Escape-SqlString $ruleId),
     (Escape-SqlString $ProjectId),
     (Escape-SqlString $dataset),
+    (if ($null -eq $bqDataset) { "NULL" } else { Escape-SqlString $bqDataset }),
     (Escape-SqlString $table),
     $isActive,
     (Escape-SqlString $freq),
@@ -216,7 +225,8 @@ foreach ($r in $rows) {
   if ($conv.Type -eq "CUSTOM_SQL") {
     $manualReview.Add([pscustomobject]@{
       retention_rule_id = $ruleId
-      dataset_name = $dataset
+      source_dataset_name = $dataset
+      bq_dataset_name = if ($null -eq $bqDataset) { "" } else { $bqDataset }
       table_name = $table
       execution_frequency = $freq
       reason = $conv.Reason

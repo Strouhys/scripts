@@ -3,7 +3,8 @@
 
 SELECT
   retention_rule_id,
-  dataset_name,
+  source_dataset_name,
+  bq_dataset_name,
   table_name,
   execution_frequency,
   source_execution_where_clause,
@@ -19,4 +20,4 @@ WHERE retention_type = 'CUSTOM_SQL'
     OR REGEXP_CONTAINS(COLLATE(bq_execution_where_clause, ''), r'(?i)CAST\s*\(\s*\(\s*CAST\s*\(\s*CAST\s*\(')
     OR REGEXP_CONTAINS(COLLATE(bq_execution_where_clause, ''), r'(?i)\bFROM\s+EP_')
   )
-ORDER BY dataset_name, table_name, retention_rule_id;
+ORDER BY source_dataset_name, table_name, retention_rule_id;

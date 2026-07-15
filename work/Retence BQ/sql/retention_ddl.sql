@@ -8,7 +8,8 @@
 CREATE TABLE IF NOT EXISTS `o2czed1.opr_data.table_retention` (
   retention_rule_id STRING NOT NULL OPTIONS(description="Jedinečný identifikátor retenčního pravidla"),
   project_id STRING NOT NULL OPTIONS(description="ID cílového BigQuery projektu"),
-  dataset_name STRING NOT NULL OPTIONS(description="Název cílového BigQuery datasetu"),
+  source_dataset_name STRING NOT NULL OPTIONS(description="Název zdrojového datasetu z původní Teradata evidence"),
+  bq_dataset_name STRING OPTIONS(description="Název cílového BigQuery datasetu; NULL znamená dosud nepřemigrovaný dataset"),
   table_name STRING NOT NULL OPTIONS(description="Název cílové BigQuery tabulky"),
 
   is_active BOOL NOT NULL OPTIONS(description="Příznak aktivace pravidla"),
