@@ -307,6 +307,8 @@ class RetentionOrchestrator:
     def insert_task(self, rule: Rule, status: str, status_reason: Optional[str], generated_sql: Optional[str], error_message: Optional[str], affected_rows: Optional[int], target_dataset_name: Optional[str], is_retry: bool = False, retry_of_task_run_id: Optional[str] = None) -> None:
         task_run_id = str(uuid.uuid4())
         unique_key = f"{rule.retention_rule_id}|{self.cfg.execution_date.isoformat()}"
+        # dataset_name in audit table is required; fall back to source dataset when BQ mapping is missing.
+        effective_dataset_name = target_dataset_name or rule.bq_dataset_name or rule.source_dataset_name
         sql = f"""
         INSERT INTO {self.table_task}
         (task_run_id, run_id, execution_date, retention_rule_id, project_id, dataset_name, table_name,
@@ -323,7 +325,7 @@ class RetentionOrchestrator:
             bigquery.ScalarQueryParameter("execution_date", "DATE", self.cfg.execution_date.isoformat()),
             bigquery.ScalarQueryParameter("retention_rule_id", "STRING", rule.retention_rule_id),
             bigquery.ScalarQueryParameter("project_id", "STRING", rule.project_id),
-            bigquery.ScalarQueryParameter("dataset_name", "STRING", target_dataset_name),
+            bigquery.ScalarQueryParameter("dataset_name", "STRING", effective_dataset_name),
             bigquery.ScalarQueryParameter("table_name", "STRING", rule.table_name),
             bigquery.ScalarQueryParameter("status", "STRING", status),
             bigquery.ScalarQueryParameter("status_reason", "STRING", status_reason),
