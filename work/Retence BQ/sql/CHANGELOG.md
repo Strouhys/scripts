@@ -2,6 +2,20 @@
 
 Tento soubor eviduje prubezne zmeny SQL casti projektu retenci v BQ.
 
+## 2026-07-27
+
+### Pridano
+- `retention_custom_to_column_age_conversion.sql`: bulk konverze 21 CUSTOM_SQL pravidel.
+  - Skupina A (8): DM/DM01 nested CAST pattern → COLUMN_AGE (end_dttm / TT_END_DTTM).
+  - Skupina B (1): AP_SDA DATE FORMAT Teradata syntax → COLUMN_AGE (start_at_tv_day, DATE).
+  - Skupina C (2): AP_STG NIC deaktivovana (subquery na ep_opr.asg_consumed_stat nema BQ ekvivalent).
+  - Skupina D (10): EP_STRM_EH CAST(inserted_ts as DATE) pattern → COLUMN_AGE (inserted_ts).
+- Test retence OCS_SMS na klonu `o2czed1.stg_data.OCS_SMS` probehl uspesne (DRY_RUN + realni DELETE).
+
+### Dalsi kroky po spusteni conversion skriptu
+- Spustit `retention_column_age_refresh.sql` pro doplneni column_data_type ze INFORMATION_SCHEMA.
+- Spustit `retention_final_validation.sql` a overit blocking_issues = 0.
+
 ## 2026-07-14
 
 ### Pridano

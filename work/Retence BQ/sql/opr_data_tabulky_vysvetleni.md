@@ -1,8 +1,9 @@
-# Vysvetleni tabulek v opr_data pro retention proces
+# Vysvětlení tabulek v opr_data pro retention proces
 
-Tento dokument popisuje tabulky vytvorene pro centralni retention maintenance proces v BigQuery.
+Tento dokument popisuje tabulky vytvořené pro centralizovaný retention maintenance proces v BigQuery.
+**Aktualizováno:** 2026-07-27
 
-## Prehled objektu
+## Přehled objektů
 
 1. `o2czed1.opr_data.table_retention`
 2. `o2czed1.opr_data.retention_run`
@@ -13,149 +14,148 @@ Tento dokument popisuje tabulky vytvorene pro centralni retention maintenance pr
 
 ## 1) table_retention
 
-Ucel:
-- Konfiguracni tabulka retenccnich pravidel.
-- Jeden radek reprezentuje jedno pravidlo, ktere urcuje co a jak se ma mazat.
+**Účel:**
+- Konfigurační tabulka retenčních pravidel.
+- Jeden řádek reprezentuje jedno pravidlo, které určuje, co a jak se má mazat.
 
-Nejdulesitejsi sloupce:
-- `retention_rule_id`: Jedinecny identifikator pravidla.
-- `project_id`, `source_dataset_name`, `bq_dataset_name`, `table_name`: Cíl pravidla.
-	- `source_dataset_name` = puvodni dataset z Teradata evidence.
-	- `bq_dataset_name` = realny cilovy dataset v BigQuery.
-	- prazdny `bq_dataset_name` znamena, ze dataset jeste neni premigrovany.
-- `is_active`: Zapnuto/vypnuto.
-- `execution_frequency`: D/W/M.
-- `retention_type`: Typ pravidla (napr. COLUMN_AGE, CUSTOM_SQL).
-- `source_execution_where_clause`: Puvodni Teradata podminka pro audit.
-- `bq_execution_where_clause`: Finalni podminka v BigQuery syntaxi.
+**Nejdůležitější sloupce:**
+- `retention_rule_id` — Jedinečný identifikátor pravidla
+- `project_id`, `source_dataset_name`, `bq_dataset_name`, `table_name` — Cíl pravidla
+  - `source_dataset_name` = původní dataset z Teradata evidence
+  - `bq_dataset_name` = skutečný cílový dataset v BigQuery
+- `is_active` — Zapnuto/vypnuto
+- `execution_frequency` — D/W/M
+- `retention_type` — Typ pravidla (např. COLUMN_AGE, CUSTOM_SQL)
+- `source_execution_where_clause` — Původní Teradata podmínka pro audit
+- `bq_execution_where_clause` — Finální podmínka v BigQuery syntaxi
 
-### Co presne znamena retention_type
+### Co přesně znamená retention_type
 
-`retention_type` je technicky prepinac logiky v orchestratoru. Podle hodnoty orchestrator rozhoduje, jakym zpusobem se sestavi a provede mazaci podminka.
+`retention_type` je technicky přepínač logiky v orchestrátoru. Podle hodnoty orchestrátor rozhoduje, jakým způsobem se sestrojí a provede mazací podmínka.
 
-1. `COLUMN_AGE`
-- Standardni sablonove pravidlo.
-- Ocekava vyplnene parametry:
-	- `retention_column`
-	- `retention_value`
-	- `retention_unit`
-	- typicky `boundary_mode = LOAD_DTTM`
-- Orchestrator z techto parametru sestavi podminku automaticky.
-- Typicky vyznam: "smaz data starsi nez X dni/mesicu/let".
+**1. COLUMN_AGE**
+- Standardní šablonové pravidlo
+- Očekává vyplněné parametry:
+  - `retention_column`
+  - `retention_value`
+  - `retention_unit`
+  - Typicky `boundary_mode = LOAD_DTTM`
+- Orchestrátor z těchto parametrů sestrojí podmínku automaticky
+- Typický význam: "smaž data starší než X dní/měsíců/let"
 
-2. `CUSTOM_SQL`
-- Vyjimkovy rezim pro slozitejsi logiku.
-- Orchestrator nepouzije sablonu, ale spousti podminku z `bq_execution_where_clause`.
-- Vhodne pro komplexni pravidla (napr. vice podminek OR, specialni business logika, specificke CDC vzory).
+**2. CUSTOM_SQL**
+- Výjimečný režim pro složitější logiku
+- Orchestrátor nepoužije šablonu, ale spouští podmínku z `bq_execution_where_clause`
+- Vhodné pro komplexní pravidla (např. více podmínek OR, speciální business logika, specifické CDC vzory)
 
-### Prakticke doporuceni
+### Praktické doporučení
 
-- Preferovat `COLUMN_AGE` vsude, kde to jde.
-- `CUSTOM_SQL` pouzivat jen tam, kde sablona nestaci.
-- Duvod:
-	- `COLUMN_AGE` je jednodussi na validaci, audit a dlouhodobou udrzbu.
-	- `CUSTOM_SQL` je flexibilnejsi, ale nese vyssi riziko chyb.
+- Preferovat `COLUMN_AGE` všude, kde to jde
+- `CUSTOM_SQL` používat jen tam, kde šablona nestačí
+- Důvod:
+  - `COLUMN_AGE` je jednodušší na validaci, audit a dlouhodobou údržbu
+  - `CUSTOM_SQL` je flexibilnější, ale nese vyšší riziko chyb
 
-### Co presne znamena boundary_mode
+### Co přesně znamená boundary_mode
 
-`boundary_mode` urcuje, vuci jakemu referencnimu bodu se u pravidla pocita hranice mazani.
+`boundary_mode` určuje, vůči jakému referenčnímu bodu se u pravidla počítá hranice mazání.
 
-Nejcastejsi hodnoty:
+**Nejčastější hodnoty:**
 
-1. `LOAD_DTTM`
-- Hranice se pocita vuci `retention_reference_dttm` daneho runu.
-- Vhodne pro stabilni denni provoz, kdy vsechna pravidla v jednom runu pouziji stejny referencni cas.
-- Nejbeznejsi volba u `COLUMN_AGE`.
+**1. LOAD_DTTM**
+- Hranice se počítá vůči `retention_reference_dttm` daného běhu
+- Vhodné pro stabilní denní provoz, kdy všechna pravidla v jednom běhu používají stejný referenční čas
+- Nejběžnější volba u `COLUMN_AGE`
 
-2. `CURRENT_DATE`
-- Hranice se odviji od aktualniho data v okamziku provedeni.
-- Je potreba opatrnost pri dlouho bezicich runech (muze nastat prechod dne).
-- Pouzivat jen kde je to business pozadavek.
+**2. CURRENT_DATE**
+- Hranice se odvíjí od aktuálního data v okamžiku provedení
+- Je potřeba opatrnost při dlouho běžících bězích (může nastat přechod dne)
+- Používat jen kde je to business požadavek
 
-3. `CUSTOM`
-- Hranice je soucasti vlastni logiky v `bq_execution_where_clause`.
-- Typicke pro slozite `CUSTOM_SQL` podminky.
+**3. CUSTOM**
+- Hranice je součástí vlastní logiky v `bq_execution_where_clause`
+- Typické pro složité `CUSTOM_SQL` podmínky
 
-Prakticke pravidlo:
+**Praktické pravidlo:**
 
-- Pokud to jde, preferovat `LOAD_DTTM`, protoze je nejlepe auditovatelny a konzistentni v ramci celeho runu.
-- `CURRENT_DATE` a `CUSTOM` pouzivat pouze tam, kde to vyzaduje konkretni logika pravidla.
+- Pokud to jde, preferovat `LOAD_DTTM`, protože je nejlépe auditovatelný a konzistentní v rámci celého běhu
+- `CURRENT_DATE` a `CUSTOM` používat pouze tam, kde to vyžaduje konkrétní logika pravidla
 
-Poznamka:
-- `source_execution_where_clause` je auditni stopa.
-- `bq_execution_where_clause` je to, co ma orchestrator vykonavat.
+**Poznámka:**
+- `source_execution_where_clause` — auditní stopa
+- `bq_execution_where_clause` — to, co má orchestrátor vykonávat
 
 ## 2) retention_run
 
-Ucel:
-- Hlavička jednoho celkoveho retention behu.
-- Jeden radek = jeden run orchestratoru.
+**Účel:**
+- Hlavička jednoho celkového retention běhu
+- Jeden řádek = jeden běh orchestrátoru
 
-Nejdulesitejsi sloupce:
-- `run_id`: Jedinecny identifikator behu.
-- `run_date`: Provozni datum behu.
-- `run_start_dttm`, `run_end_dttm`: Cas zacatku/konce.
-- `retention_reference_dttm`: Referencni cas fixovany pro cely run.
-- `orchestrator`: TASK_SCHEDULER / OFLOW / AIRFLOW.
-- `status`: CREATED, RUNNING, SUCCESS, PARTIAL_SUCCESS, FAILED.
-- `error_message`: Chyba na urovni celeho runu.
+**Nejdůležitější sloupce:**
+- `run_id` — Jedinečný identifikátor běhu
+- `run_date` — Provozní datum běhu
+- `run_start_dttm`, `run_end_dttm` — Čas začátku/konce
+- `retention_reference_dttm` — Referenční čas fixovaný pro celý běh
+- `orchestrator` — TASK_SCHEDULER / OFLOW / AIRFLOW
+- `status` — CREATED, RUNNING, SUCCESS, PARTIAL_SUCCESS, FAILED
+- `error_message` — Chyba na úrovni celého běhu
 
 ## 3) retention_task_run
 
-Ucel:
-- Detailni audit zpracovani jednotlivych pravidel v ramci runu.
-- Jeden radek = jedno vyhodnocene pravidlo (provedeno nebo preskoceno).
+**Účel:**
+- Detailní audit zpracování jednotlivých pravidel v rámci běhu
+- Jeden řádek = jedno vyhodnocené pravidlo (provedeno nebo přeskočeno)
 
-Nejdulesitejsi sloupce:
-- `task_run_id`: Jedinecny identifikator tasku.
-- `run_id`: Vazba na `retention_run`.
-- `retention_rule_id`: Vazba na `table_retention`.
-- `execution_date`: Datum idempotence.
-- `status`: SUCCESS/FAILED/SKIPPED_*.
-- `generated_sql`: Vygenerovane SQL pro mazani.
-- `affected_rows`: Pocet ovlivnenych radku.
-- `unique_task_key`: Business klic `retention_rule_id + execution_date`.
-- `is_retry`, `retry_of_task_run_id`: Evidence retry pokusu.
+**Nejdůležitější sloupce:**
+- `task_run_id` — Jedinečný identifikátor tasku
+- `run_id` — Vazba na `retention_run`
+- `retention_rule_id` — Vazba na `table_retention`
+- `execution_date` — Datum idempotence
+- `status` — SUCCESS/FAILED/SKIPPED_*
+- `generated_sql` — Vygenerované SQL pro mazání
+- `affected_rows` — Počet ovlivněných řádků
+- `unique_task_key` — Business klíč `retention_rule_id + execution_date`
+- `is_retry`, `retry_of_task_run_id` — Evidence retry pokusů
 
-Poznamka:
-- Tato tabulka je hlavni zdroj pro troubleshooting a retry.
+**Poznámka:**
+- Tato tabulka je hlavní zdroj pro troubleshooting a retry
 
 ## 4) retention_status_model
 
-Ucel:
-- Referencni ciselnik povolenych stavu pro RUN a TASK.
-- Centralizuje vyznam a poradi stavu.
+**Účel:**
+- Referenční číselník povolených stavů pro RUN a TASK
+- Centralizuje význam a pořadí stavů
 
-Nejdulesitejsi sloupce:
-- `entity_type`: RUN nebo TASK.
-- `status_code`: Kod stavu.
-- `is_terminal`: Je stav koncovy.
-- `is_success`: Je stav povazovan za uspesny.
-- `status_order`: Poradi stavu pro dokumentaci/reporting.
+**Nejdůležitější sloupce:**
+- `entity_type` — RUN nebo TASK
+- `status_code` — Kód stavu
+- `is_terminal` — Je stav koncový
+- `is_success` — Je stav považován za úspěšný
+- `status_order` — Pořadí stavu pro dokumentaci/reporting
 
 ## 5) v_retention_run_last_14d
 
-Ucel:
-- Rychly monitoring poslednich 14 dni runu.
-- Operativni prehled uspechu/chyb bez nutnosti psat vlastni dotaz.
+**Účel:**
+- Rychlý monitoring posledních 14 dní běhů
+- Operativní přehled úspěchů/chyb bez nutnosti psát vlastní dotaz
 
 ## 6) v_retention_task_failures_last_14d
 
-Ucel:
-- Rychly monitoring selhani tasku za poslednich 14 dni.
-- Vhodne pro denni kontrolu incidentu a retry.
+**Účel:**
+- Rychlý monitoring selhání tasků za posledních 14 dní
+- Vhodné pro denní kontrolu incidentů a retry
 
-## Jak objekty spolupracuji
+## Jak objekty spolupracují
 
-1. Orchestrator zalozi zaznam v `retention_run`.
-2. Nacte pravidla z `table_retention`.
-3. Pro kazde pravidlo vytvori radek v `retention_task_run`.
-4. Provede SQL nebo oznaci SKIPPED stav.
-5. Uzavre status runu v `retention_run`.
+1. Orchestrátor založí záznam v `retention_run`
+2. Načte pravidla z `table_retention`
+3. Pro každé pravidlo vytvoří řádek v `retention_task_run`
+4. Provede SQL nebo označí SKIPPED stav
+5. Uzavře status běhu v `retention_run`
 
-## Provozni doporuceni
+## Provozní doporučení
 
-- Aktivni pravidla udrzovat jen s validnim `bq_execution_where_clause`.
-- `source_execution_where_clause` nemenit, slouzi jako auditni zdroj.
-- Pred go-live vzdy spustit finalni validaci (`retention_final_validation.sql`).
-- Monitoring stavet nad 14dennimi view a `retention_task_run`.
+- Aktivní pravidla udržovat jen s platným `bq_execution_where_clause`
+- `source_execution_where_clause` neměnit, slouží jako auditní zdroj
+- Před go-live vždy spustit finální validaci (`retention_final_validation.sql`)
+- Monitoring stavů nad 14denními view a v `retention_task_run`
