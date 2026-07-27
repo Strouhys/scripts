@@ -151,27 +151,33 @@ OPTIONS (
 -- Seed status model (idempotent load style).
 MERGE `o2czed1.opr_data.retention_status_model` T
 USING (
-  SELECT 'RUN' AS entity_type, 'CREATED' AS status_code, FALSE AS is_terminal, FALSE AS is_success, 10 AS status_order, 'Run row created' AS description UNION ALL
-  SELECT 'RUN', 'RUNNING', FALSE, FALSE, 20, 'Run execution in progress' UNION ALL
-  SELECT 'RUN', 'SUCCESS', TRUE, TRUE, 30, 'All tasks successful or skipped as expected' UNION ALL
-  SELECT 'RUN', 'PARTIAL_SUCCESS', TRUE, FALSE, 40, 'At least one task failed and at least one succeeded/skipped' UNION ALL
-  SELECT 'RUN', 'FAILED', TRUE, FALSE, 50, 'System failure, run not completed'
+  SELECT 'RUN' AS entity_type, 'CREATED' AS status_code, FALSE AS is_terminal, FALSE AS is_success, 10 AS status_order, 'Záznam běhu byl vytvořen' AS description UNION ALL
+  SELECT 'RUN', 'RUNNING', FALSE, FALSE, 20, 'Běh je právě zpracováván' UNION ALL
+  SELECT 'RUN', 'SUCCESS', TRUE, TRUE, 30, 'Všechny tasky proběhly úspěšně nebo byly korektně přeskočeny' UNION ALL
+  SELECT 'RUN', 'PARTIAL_SUCCESS', TRUE, FALSE, 40, 'Alespoň jeden task selhal a alespoň jeden uspěl nebo byl přeskočen' UNION ALL
+  SELECT 'RUN', 'FAILED', TRUE, FALSE, 50, 'Systémové selhání, běh nebyl dokončen'
 
   UNION ALL
 
-  SELECT 'TASK', 'RUNNING', FALSE, FALSE, 10, 'Task is being executed' UNION ALL
-  SELECT 'TASK', 'SUCCESS', TRUE, TRUE, 20, 'Delete executed successfully' UNION ALL
-  SELECT 'TASK', 'FAILED', TRUE, FALSE, 30, 'Delete execution failed' UNION ALL
-  SELECT 'TASK', 'SKIPPED_FREQUENCY', TRUE, TRUE, 40, 'Not scheduled for current date' UNION ALL
-  SELECT 'TASK', 'SKIPPED_ALREADY_SUCCESS', TRUE, TRUE, 50, 'Already completed for rule+day' UNION ALL
-  SELECT 'TASK', 'SKIPPED_TABLE_NOT_FOUND', TRUE, TRUE, 60, 'Target table does not exist yet' UNION ALL
-  SELECT 'TASK', 'SKIPPED_COLUMN_NOT_FOUND', TRUE, TRUE, 70, 'Required retention column does not exist' UNION ALL
-  SELECT 'TASK', 'SKIPPED_NOT_ACTIVE', TRUE, TRUE, 80, 'Rule is inactive' UNION ALL
-  SELECT 'TASK', 'SKIPPED_NOT_IMPLEMENTED', TRUE, TRUE, 90, 'Retention type not implemented in current release' UNION ALL
-  SELECT 'TASK', 'SKIPPED_VALIDATION', TRUE, TRUE, 100, 'Rule failed static validation'
+  SELECT 'TASK', 'RUNNING', FALSE, FALSE, 10, 'Task se právě vykonává' UNION ALL
+  SELECT 'TASK', 'SUCCESS', TRUE, TRUE, 20, 'Mazání bylo úspěšně provedeno' UNION ALL
+  SELECT 'TASK', 'FAILED', TRUE, FALSE, 30, 'Mazání selhalo' UNION ALL
+  SELECT 'TASK', 'SKIPPED_FREQUENCY', TRUE, TRUE, 40, 'Není naplánováno pro aktuální datum' UNION ALL
+  SELECT 'TASK', 'SKIPPED_ALREADY_SUCCESS', TRUE, TRUE, 50, 'Pravidlo už bylo pro tento den úspěšně dokončeno' UNION ALL
+  SELECT 'TASK', 'SKIPPED_TABLE_NOT_FOUND', TRUE, TRUE, 60, 'Cílová tabulka zatím neexistuje' UNION ALL
+  SELECT 'TASK', 'SKIPPED_COLUMN_NOT_FOUND', TRUE, TRUE, 70, 'Požadovaný retenční sloupec neexistuje' UNION ALL
+  SELECT 'TASK', 'SKIPPED_NOT_ACTIVE', TRUE, TRUE, 80, 'Pravidlo je neaktivní' UNION ALL
+  SELECT 'TASK', 'SKIPPED_NOT_IMPLEMENTED', TRUE, TRUE, 90, 'Typ retence není v aktuální verzi implementován' UNION ALL
+  SELECT 'TASK', 'SKIPPED_VALIDATION', TRUE, TRUE, 100, 'Pravidlo neprošlo statickou validací'
 ) S
 ON T.entity_type = S.entity_type
 AND T.status_code = S.status_code
+WHEN MATCHED THEN
+  UPDATE SET
+    T.is_terminal = S.is_terminal,
+    T.is_success = S.is_success,
+    T.status_order = S.status_order,
+    T.description = S.description
 WHEN NOT MATCHED THEN
   INSERT (entity_type, status_code, is_terminal, is_success, status_order, description)
   VALUES (S.entity_type, S.status_code, S.is_terminal, S.is_success, S.status_order, S.description);

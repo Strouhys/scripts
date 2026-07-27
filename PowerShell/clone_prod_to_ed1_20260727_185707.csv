@@ -1,0 +1,2 @@
+﻿"Table","Status","Source","Target","Backup","Message"
+"ocs_charge","FAILED","o2czep:stg_data.ocs_charge","o2czed1:stg_data.ocs_charge","","Produkční tabulka neexistuje nebo k ní není přístup."
