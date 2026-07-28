@@ -25,7 +25,6 @@ WITH base AS (
     retention_value,
     retention_unit,
     column_data_type,
-    boundary_mode,
     source_execution_where_clause,
     bq_execution_where_clause,
     retention_comment,
@@ -62,11 +61,6 @@ issues AS (
   SELECT retention_rule_id, 'COLUMN_AGE_RETENTION_UNIT_INVALID'
   FROM base
   WHERE retention_type = 'COLUMN_AGE' AND retention_unit NOT IN ('DAY', 'MONTH', 'YEAR')
-
-  UNION ALL
-  SELECT retention_rule_id, 'COLUMN_AGE_BOUNDARY_MODE_INVALID'
-  FROM base
-  WHERE retention_type = 'COLUMN_AGE' AND boundary_mode NOT IN ('LOAD_DTTM', 'CURRENT_DATE', 'CUSTOM')
 
   UNION ALL
   SELECT retention_rule_id, 'ACTIVE_RULE_WITHOUT_BQ_DATASET_MAPPING'
@@ -146,7 +140,6 @@ WITH base AS (
     retention_column,
     retention_value,
     retention_unit,
-    boundary_mode,
     source_execution_where_clause,
     bq_execution_where_clause,
     retention_comment,
@@ -183,11 +176,6 @@ issues AS (
   SELECT retention_rule_id, 'COLUMN_AGE_RETENTION_UNIT_INVALID'
   FROM base
   WHERE retention_type = 'COLUMN_AGE' AND retention_unit NOT IN ('DAY', 'MONTH', 'YEAR')
-
-  UNION ALL
-  SELECT retention_rule_id, 'COLUMN_AGE_BOUNDARY_MODE_INVALID'
-  FROM base
-  WHERE retention_type = 'COLUMN_AGE' AND boundary_mode NOT IN ('LOAD_DTTM', 'CURRENT_DATE', 'CUSTOM')
 
   UNION ALL
   SELECT retention_rule_id, 'ACTIVE_RULE_WITHOUT_BQ_DATASET_MAPPING'
@@ -256,7 +244,6 @@ SELECT
   b.retention_column,
   b.retention_value,
   b.retention_unit,
-  b.boundary_mode,
   b.source_execution_where_clause,
   b.bq_execution_where_clause,
   b.retention_comment,

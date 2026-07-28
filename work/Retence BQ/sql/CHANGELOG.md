@@ -2,6 +2,23 @@
 
 Tento soubor eviduje prubezne zmeny SQL casti projektu retenci v BQ.
 
+## 2026-07-28
+
+### Odebrano
+- Sloupec `boundary_mode` z `table_retention` DDL (nepoužívaný, orchestrátor s ním nepracuje).
+- Validační pravidla pro `boundary_mode` z `retention_final_validation.sql`.
+- Dokumentace sekce "Co přesně znamená boundary_mode" z `opr_data_tabulky_vysvetleni.md`.
+- Reference na `boundary_mode` z Python orchestrátoru (`retention_orchestrator.py`):
+  - Odstraněn z `Rule` dataclass
+  - Odstraněn ze SELECT výběru při načítání pravidel
+  - Odstraněn z parsování dat
+  - Odstraněn z audit logování tasku
+
+### Důvod
+- Orchestrátor s `boundary_mode` nikdy nepracoval (ignoroval jej).
+- Sloupec byl jen mrtvý kód v dokumentaci a validaci.
+- Zjednodušení schématu a logiky bez ztráty funkcionality.
+
 ## 2026-07-27
 
 ### Pridano

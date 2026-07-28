@@ -39,7 +39,6 @@ Tento dokument popisuje tabulky vytvořené pro centralizovaný retention mainte
   - `retention_column`
   - `retention_value`
   - `retention_unit`
-  - Typicky `boundary_mode = LOAD_DTTM`
 - Orchestrátor z těchto parametrů sestrojí podmínku automaticky
 - Typický význam: "smaž data starší než X dní/měsíců/let"
 
@@ -56,34 +55,117 @@ Tento dokument popisuje tabulky vytvořené pro centralizovaný retention mainte
   - `COLUMN_AGE` je jednodušší na validaci, audit a dlouhodobou údržbu
   - `CUSTOM_SQL` je flexibilnější, ale nese vyšší riziko chyb
 
-### Co přesně znamená boundary_mode
+## Jak přidat nové pravidlo
 
-`boundary_mode` určuje, vůči jakému referenčnímu bodu se u pravidla počítá hranice mazání.
+### Konvence `retention_rule_id`
 
-**Nejčastější hodnoty:**
+ID pravidla musí být **globálně jedinečné** a slouží jako business klíč pro idempotenci orchestrátoru.
 
-**1. LOAD_DTTM**
-- Hranice se počítá vůči `retention_reference_dttm` daného běhu
-- Vhodné pro stabilní denní provoz, kdy všechna pravidla v jednom běhu používají stejný referenční čas
-- Nejběžnější volba u `COLUMN_AGE`
+**Doporučený formát:**
+```
+TD_<DATASET>_<TABLE>_<SUFFIX>
+```
 
-**2. CURRENT_DATE**
-- Hranice se odvíjí od aktuálního data v okamžiku provedení
-- Je potřeba opatrnost při dlouho běžících bězích (může nastat přechod dne)
-- Používat jen kde je to business požadavek
+**Komponenty:**
+- `TD` — Prefix (Teradata origin; lze přizpůsobit, např. `MANUÁLNÍ_` pro ručně přidaná pravidla)
+- `<DATASET>` — Zdroj dataset z BigQuery (např. AP_STG, EP_CDC)
+- `<TABLE>` — Název tabulky
+- `<SUFFIX>` — Unikátní identifikátor (datum, JIRA ID, nebo Teradata ID)
 
-**3. CUSTOM**
-- Hranice je součástí vlastní logiky v `bq_execution_where_clause`
-- Typické pro složité `CUSTOM_SQL` podmínky
+**Příklady:**
+- `TD_AP_STG_DPM_MESSAGE_20260728` — nové pravidlo z 28.7.2026
+- `TD_AP_STG_DPM_MESSAGE_STATUS_20260728` — další pravidlo ze stejného datasetu, stejný datum
+- `TD_EP_CDC_ORDERS_BIDEV1234` — podle JIRA ticketu
+- `TD_EP_CDC_EVENTS_00350` — původní Teradata ID ze migrace
 
-**Praktické pravidlo:**
+**Důležité:** Suffix můžete mít stejný (např. datum) i pro různé tabulky ze stejného datasetu. Unikátnost se vynucuje kombinací `retention_rule_id + execution_date`.
 
-- Pokud to jde, preferovat `LOAD_DTTM`, protože je nejlépe auditovatelný a konzistentní v rámci celého běhu
-- `CURRENT_DATE` a `CUSTOM` používat pouze tam, kde to vyžaduje konkrétní logika pravidla
+### SQL template pro vložení nového pravidla
 
-**Poznámka:**
-- `source_execution_where_clause` — auditní stopa
-- `bq_execution_where_clause` — to, co má orchestrátor vykonávat
+```sql
+INSERT INTO `o2czed1.opr_data.table_retention`
+(
+  retention_rule_id,
+  project_id,
+  source_dataset_name,
+  bq_dataset_name,
+  table_name,
+  is_active,
+  execution_frequency,
+  execution_day_of_week,
+  execution_day_of_month,
+  retention_type,
+  retention_column,
+  retention_value,
+  retention_unit,
+  column_data_type,
+  source_execution_where_clause,
+  bq_execution_where_clause,
+  retention_comment,
+  created_by,
+  updated_by
+)
+VALUES
+(
+  'TD_AP_STG_DPM_MESSAGE_20260728',     -- Váš retention_rule_id
+  'o2czed1',                             -- Cílový projekt
+  'AP_STG',                              -- Zdrojový dataset (historická poznámka)
+  'stg_data',                            -- Skutečný BQ dataset
+  'DPM_MESSAGE',                         -- Tabulka
+  FALSE,                                 -- NEJDŘÍV FALSE pro testování!
+  'D',                                   -- Frekvence: D=denní, W=týdenní, M=měsíční
+  NULL,                                  -- execution_day_of_week (NULL pro denní)
+  NULL,                                  -- execution_day_of_month (NULL pro denní)
+  'COLUMN_AGE',                          -- Typ: COLUMN_AGE nebo CUSTOM_SQL
+  'load_dttm',                           -- Sloupec se časovým razítkem
+  90,                                    -- Počet jednotek (dní/měsíců/let)
+  'DAY',                                 -- Jednotka: DAY, MONTH, YEAR
+  'TIMESTAMP',                           -- Datový typ: DATE, DATETIME, TIMESTAMP
+  'Původní WHERE z Teradata (pokud existuje)',  -- Historická poznámka
+  NULL,                                  -- NECHÁTE PRÁZDNÉ pro COLUMN_AGE!
+  'Smaž zprávy starší než 90 dní - cleanup staré komunikace',
+  'váš_login',
+  'váš_login'
+);
+```
+
+### Postup po vložení pravidla
+
+**1. Spusťte refresh metadat:**
+```sql
+EXECUTE IMMEDIATE """
+  UPDATE `o2czed1.opr_data.table_retention`
+  SET column_data_type = 'TIMESTAMP'
+  WHERE retention_rule_id = 'TD_AP_STG_DPM_MESSAGE_20260728'
+    AND column_data_type IS NULL;
+""";
+```
+Nebo lépe — spusťte `retention_column_age_refresh.sql` pro automatické doplnění skutečného datového typu ze INFORMATION_SCHEMA.
+
+**2. Validujte pravidlo:**
+```sql
+-- Spusťte retention_final_validation.sql
+-- a zkontrolujte, že vaše nové pravidlo nemá žádné issue_code
+```
+
+**3. Testujte s dry-run:**
+```bash
+python orchestrator/retention_orchestrator.py \
+  --project-id o2czed1 \
+  --dataset opr_data \
+  --execution-date 2026-07-28 \
+  --filter-rule-id "TD_AP_STG_DPM_MESSAGE_20260728" \
+  --dry-run
+```
+
+**4. Aktivujte až po úspěšném testu:**
+```sql
+UPDATE `o2czed1.opr_data.table_retention`
+SET is_active = TRUE,
+    updated_by = 'váš_login',
+    updated_dttm = CURRENT_TIMESTAMP()
+WHERE retention_rule_id = 'TD_AP_STG_DPM_MESSAGE_20260728';
+```
 
 ## 2) retention_run
 

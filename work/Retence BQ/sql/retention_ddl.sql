@@ -23,7 +23,6 @@ CREATE TABLE IF NOT EXISTS `o2czed1.opr_data.table_retention` (
   retention_value INT64 OPTIONS(description="Číselná retenční hodnota použitá s retenční jednotkou"),
   retention_unit STRING OPTIONS(description="Retenční jednotka DAY nebo MONTH nebo YEAR"),                        -- DAY | MONTH | YEAR
   column_data_type STRING OPTIONS(description="Datový typ retenčního sloupce DATE nebo DATETIME nebo TIMESTAMP"),                      -- DATE | DATETIME | TIMESTAMP
-  boundary_mode STRING OPTIONS(description="Režim hranice LOAD_DTTM nebo CURRENT_DATE nebo CUSTOM"),                         -- LOAD_DTTM | CURRENT_DATE | CUSTOM
   source_execution_where_clause STRING OPTIONS(description="Původní WHERE podmínka v Teradata syntaxi pro audit a dohledání"),
   bq_execution_where_clause STRING OPTIONS(description="WHERE podmínka přepsaná do BigQuery syntaxe pro reálné spuštění"),
 

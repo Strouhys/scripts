@@ -85,7 +85,6 @@ class Rule:
     retention_value: Optional[int]
     retention_unit: Optional[str]
     column_data_type: Optional[str]
-    boundary_mode: Optional[str]
     source_execution_where_clause: Optional[str]
     bq_execution_where_clause: Optional[str]
 
@@ -210,7 +209,6 @@ class RetentionOrchestrator:
           retention_value,
           retention_unit,
           column_data_type,
-          boundary_mode,
           source_execution_where_clause,
           bq_execution_where_clause
         FROM {self.table_retention}
@@ -236,7 +234,6 @@ class RetentionOrchestrator:
                     retention_value=r["retention_value"],
                     retention_unit=(r["retention_unit"] or "").strip().upper() if r["retention_unit"] else None,
                     column_data_type=(r["column_data_type"] or "").strip().upper() if r["column_data_type"] else None,
-                    boundary_mode=(r["boundary_mode"] or "").strip().upper() if r["boundary_mode"] else None,
                     source_execution_where_clause=r["source_execution_where_clause"],
                     bq_execution_where_clause=r["bq_execution_where_clause"],
                 )
@@ -451,7 +448,6 @@ class RetentionOrchestrator:
                 retention_value=rule.retention_value,
                 retention_unit=rule.retention_unit,
                 column_data_type=resolved_column_type or rule.column_data_type,
-                boundary_mode=rule.boundary_mode,
                 source_execution_where_clause=rule.source_execution_where_clause,
                 bq_execution_where_clause=rule.bq_execution_where_clause,
             )
@@ -485,7 +481,6 @@ class RetentionOrchestrator:
                 retention_value=effective_rule.retention_value,
                 retention_unit=effective_rule.retention_unit,
                 column_data_type=effective_rule.column_data_type,
-                boundary_mode=effective_rule.boundary_mode,
                 source_execution_where_clause=effective_rule.source_execution_where_clause,
                 bq_execution_where_clause=effective_rule.bq_execution_where_clause,
             )

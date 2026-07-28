@@ -11,36 +11,8 @@ $Dataset       = "stg_data"
 $RunSuffix = Get-Date -Format "yyyyMMdd_HHmmss"
 
 $Tables = @(
-    "bscs_ca_o2s3_reve_estimate",
-    "bscs_rtx",
-    "bscs_rtx_free",
-    "bscs_rtx_tap",
-    "bscs_tot_zone_mdl_map_mpulkgvm",
-    "ocs_balance_expiry",
-    "ocs_bundle_activation",
-    "ocs_bundle_deactivation",
-    "ocs_bundle_failed_renewal",
-    "ocs_bundle_recharge",
-    "ocs_bundle_renewal",
-    "ocs_circuit_switched",
-    "ocs_data_iec",
-    "ocs_data_scur",
-    "ocs_change_product_type",
-    "ocs_charge",
-    "ocs_initial_credit",
-    "ocs_mms",
-    "ocs_prov_account_creation",
-    "ocs_prov_account_deletion",
-    "ocs_recharge",
-    "ocs_sms",
-    "ocs_subscriber_lifecycle",
-    "ocs_tariff_update",
-    "ocs_vas_check_charge",
-    "ocs_vas_refund",
-    "ocs_vas_reserve_commit",
-    "ebox_views_v2",
-    "sfa_audit",
-    "zis_service_parameters"
+   
+    "ocs_sms"
 )
 
 function Test-BqTable {
