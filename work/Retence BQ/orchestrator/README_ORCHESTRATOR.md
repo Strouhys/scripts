@@ -1,7 +1,7 @@
-# Orchestrátor Retenčních Pravidel (MVP)
+# Orchestrátor Retenčních Pravidel
 
 Python orchestrátor pro centralizovanou správu retenčních pravidel v BigQuery.
-**Stav:** Produkčně připraveno (k 2026-07-27)
+**Stav:** Produkčně připraveno (k 2026-07-30)
 
 ## Rozsah
 
@@ -11,20 +11,14 @@ Python orchestrátor pro centralizovanou správu retenčních pravidel v BigQuer
 - Zapisuje audit běhu a tasků do `retention_run` a `retention_task_run`
 - Zajišťuje idempotenci pomocí `retention_rule_id + execution_date`
 - Podporuje `COLUMN_AGE` (automatická WHERE generace) a `CUSTOM_SQL` (vlastní podmínka)
-- Podporuje mód `--dry-run` pro bezpečné testování bez skutečného mazání
+- Podporuje mód `--dry-run` pro bezpečné testování bez skutečného mazání (využito pro testy v .env)
 - Mechanismus přepsání pro ověřovací testování (dočasné přepsání retention_value/unit)
 
-**Otestované scénáře (2026-07-27):**
-- ✅ Mazání jednotlivého pravidla (OCS_SMS, 2 DAY COLUMN_AGE)
-- ✅ Ověření módu dry-run
-- ✅ Skutečné DELETE s ověřením idempotence
-- ✅ Mechanismus přepsání (1 DAY pro testování více pravidel)
-- ✅ Vyhodnocení frekvence (D/W/M logika funguje správně)
 
 **Známá omezení:**
-- 435 pravidel bez mapování `bq_dataset_name` zůstává aktivních (čeká se na migraci datasetů)
-- 2 pravidla deaktivována z důvodu eksterne závislostí (poddotaz ep_opr.asg_consumed_stat není v BQ dostupný)
-- 8 pravidel s chybějícím `bq_execution_where_clause` (vyžaduje ruční kontrolu nebo konverzi)
+- Pravidla bez mapování `bq_dataset_name` mohou být stále aktivní, ale orchestrátor je korektně přeskočí se `status_reason=DATASET_NOT_MIGRATED`.
+- Některá pravidla mohou být dočasně deaktivována kvůli externím závislostem, které v BigQuery nejsou dostupné.
+- Aktivní `CUSTOM_SQL` pravidla s prázdným `bq_execution_where_clause` vyžadují ruční doplnění nebo konverzi.
 
 ## Instalace a Autentizace
 
@@ -45,7 +39,7 @@ pip install -r ../requirements.txt
 
 ```env
 GOOGLE_APPLICATION_CREDENTIALS=C:\cesta\k\retention-sa.json
-RETENTION_PROJECT_ID=o2czed1
+RETENTION_PROJECT_ID=o2czep  pro test (o2czed1)
 RETENTION_METADATA_DATASET=opr_data
 ```
 
@@ -53,17 +47,6 @@ RETENTION_METADATA_DATASET=opr_data
 - BigQuery Job User
 - BigQuery Data Viewer + BigQuery Data Editor na datasetu `opr_data`
 
-3. Pokud je v korporátní síti aktivní TLS inspekce, Python se může selhat na SSL ověření:
-
-```powershell
-$env:REQUESTS_CA_BUNDLE = "C:\cesta\k\corp-ca-bundle.pem"
-# nebo
-$env:SSL_CERT_FILE = "C:\cesta\k\corp-ca-bundle.pem"
-```
-
-Poznámka: Modul Windows `truststore` by měl automaticky načítat systémové certifikáty.
-
-## Konfigurace přes .env (co vše lze nastavit)
 
 Orchestrátor umí načítat konfiguraci ze souboru `.env`. CLI argument má vždy prioritu před `.env`.
 
@@ -82,6 +65,8 @@ RETENTION_WEEKLY_RUN_DAY=6
 RETENTION_MAX_RULES=25
 RETENTION_DRY_RUN=true
 RETENTION_LOG_LEVEL=INFO
+RETENTION_LOG_DIR=logs
+RETENTION_LOG_TO_FILE=true
 
 # Filtry (když jsou nastavené, běží pouze filtrovaný výběr)
 RETENTION_RULE_ID=
@@ -95,9 +80,14 @@ RETENTION_OVERRIDE_VALUE=
 RETENTION_OVERRIDE_UNIT=
 ```
 
+**Logovani do souboru:**
+- Pri kazdem spusteni se vytvori samostatny log soubor, defaultne ve slozce `logs/`.
+- Slozku zmenite pres `RETENTION_LOG_DIR` nebo CLI `--log-dir`.
+- Souborove logovani lze vypnout pres `RETENTION_LOG_TO_FILE=false` nebo CLI `--no-file-log`.
+
 **Chování filtrů:**
 - Pokud je nastaveno alespoň jedno z `RETENTION_RULE_ID`, `RETENTION_TARGET_PROJECT`, `RETENTION_TARGET_DATASET`, `RETENTION_TARGET_TABLE`, orchestrátor spustí jen odpovídající podmnožinu pravidel
-- Pokud není nastaven žádný filtr, orchestrátor zpracuje celý aktivní obsah `o2czed1.opr_data.table_retention`
+- Pokud není nastaven žádný filtr, orchestrátor zpracuje celý aktivní obsah `<RETENTION_PROJECT_ID>.<RETENTION_METADATA_DATASET>.table_retention`
 
 **Mapování datasetů:**
 - `source_dataset_name` = původní dataset z Teradata evidence
@@ -155,7 +145,7 @@ python .\orchestrator\retention_orchestrator.py --project-id o2czed1 --dataset o
 - Produkční projekt bude jiný než `o2czed1`.
 - Selhání jedné tabulky nezastaví zpracování ostatních pravidel.
 - Orchestrátor se automaticky pokusí načíst OS trust store (Windows cert store) přes modul `truststore`.
-- Pravidla mohou zůstat v `o2czed1.opr_data.table_retention` i pro datasety, které ještě nejsou migrovány; v tom případě se pravidlo přeskočí s `status_reason=DATASET_NOT_MIGRATED`.
+- Pravidla mohou zůstat v metadatové tabulce `<RETENTION_PROJECT_ID>.<RETENTION_METADATA_DATASET>.table_retention` i pro datasety, které ještě nejsou migrovány; v tom případě se pravidlo přeskočí s `status_reason=DATASET_NOT_MIGRATED`.
 
 ## Řešení Potíží
 

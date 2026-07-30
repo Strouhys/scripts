@@ -80,92 +80,128 @@ TD_<DATASET>_<TABLE>_<SUFFIX>
 
 **Důležité:** Suffix můžete mít stejný (např. datum) i pro různé tabulky ze stejného datasetu. Unikátnost se vynucuje kombinací `retention_rule_id + execution_date`.
 
-### SQL template pro vložení nového pravidla
+### Vložení nového pravidla přes proceduru
 
-```sql
-INSERT INTO `o2czed1.opr_data.table_retention`
-(
-  retention_rule_id,
-  project_id,
-  source_dataset_name,
-  bq_dataset_name,
-  table_name,
-  is_active,
-  execution_frequency,
-  execution_day_of_week,
-  execution_day_of_month,
-  retention_type,
-  retention_column,
-  retention_value,
-  retention_unit,
-  column_data_type,
-  source_execution_where_clause,
-  bq_execution_where_clause,
-  retention_comment,
-  created_by,
-  updated_by
-)
-VALUES
-(
-  'TD_AP_STG_DPM_MESSAGE_20260728',     -- Váš retention_rule_id
-  'o2czed1',                             -- Cílový projekt
-  'AP_STG',                              -- Zdrojový dataset (historická poznámka)
-  'stg_data',                            -- Skutečný BQ dataset
-  'DPM_MESSAGE',                         -- Tabulka
-  FALSE,                                 -- NEJDŘÍV FALSE pro testování!
-  'D',                                   -- Frekvence: D=denní, W=týdenní, M=měsíční
-  NULL,                                  -- execution_day_of_week (NULL pro denní)
-  NULL,                                  -- execution_day_of_month (NULL pro denní)
-  'COLUMN_AGE',                          -- Typ: COLUMN_AGE nebo CUSTOM_SQL
-  'load_dttm',                           -- Sloupec se časovým razítkem
-  90,                                    -- Počet jednotek (dní/měsíců/let)
-  'DAY',                                 -- Jednotka: DAY, MONTH, YEAR
-  'TIMESTAMP',                           -- Datový typ: DATE, DATETIME, TIMESTAMP
-  'Původní WHERE z Teradata (pokud existuje)',  -- Historická poznámka
-  NULL,                                  -- NECHÁTE PRÁZDNÉ pro COLUMN_AGE!
-  'Smaž zprávy starší než 90 dní - cleanup staré komunikace',
-  'váš_login',
-  'váš_login'
+Pro vkládání pravidel typu `COLUMN_AGE` slouží uložená procedura `sp_add_column_age_retention_rule`.
+
+## Obecný vzor
+
+```
+CALL `o2czep.opr_data.sp_add_column_age_retention_rule`(
+  'AP_STG',                 -- 1. source_dataset_name:
+                            --    Původní název datasetu ze zdrojové/Teradata evidence.
+
+  'stg_data',               -- 2. bq_dataset_name:
+                            --    Skutečný cílový dataset v BigQuery.
+
+  'DPM_MESSAGE',            -- 3. table_name:
+                            --    Název cílové tabulky v BigQuery.
+
+  'D',                      -- 4. execution_frequency:
+                            --    D = denně
+                            --    W = týdně
+                            --    M = měsíčně
+
+  NULL,                     -- 5. execution_day_of_week:
+                            --    Pouze pro frekvenci W.
+                            --    1 = pondělí, 2 = úterý, ... 6 = sobota, 7 = neděle.
+                            --    Pro D a M musí být NULL.
+
+  NULL,                     -- 6. execution_day_of_month:
+                            --    Pouze pro frekvenci M.
+                            --    Povolená hodnota 1 až 31.
+                            --    Pro D a W musí být NULL.
+
+  'load_dttm',              -- 7. retention_column:
+                            --    Datumový sloupec, podle kterého se určuje stáří dat.
+                            --    Musí být typu DATE, DATETIME nebo TIMESTAMP.
+
+  90,                       -- 8. retention_value:
+                            --    Počet retenčních jednotek.
+                            --    Musí být větší než 0.
+
+  'DAY',                    -- 9. retention_unit:
+                            --    DAY, MONTH nebo YEAR.
+
+  'Původní podmínka z TD',  -- 10. source_execution_where_clause:
+                            --     Původní Teradata podmínka pro audit.
+                            --     Pokud neexistuje, použijte NULL.
+
+  'Mazání dat starších než 90 dní'
+                            -- 11. retention_comment:
+                            --     Srozumitelný popis účelu retenčního pravidla.
 );
 ```
 
-### Postup po vložení pravidla
+## Denní pravidlo
 
-**1. Spusťte refresh metadat:**
-```sql
-EXECUTE IMMEDIATE """
-  UPDATE `o2czed1.opr_data.table_retention`
-  SET column_data_type = 'TIMESTAMP'
-  WHERE retention_rule_id = 'TD_AP_STG_DPM_MESSAGE_20260728'
-    AND column_data_type IS NULL;
-""";
 ```
-Nebo lépe — spusťte `retention_column_age_refresh.sql` pro automatické doplnění skutečného datového typu ze INFORMATION_SCHEMA.
-
-**2. Validujte pravidlo:**
-```sql
--- Spusťte retention_final_validation.sql
--- a zkontrolujte, že vaše nové pravidlo nemá žádné issue_code
-```
-
-**3. Testujte s dry-run:**
-```bash
-python orchestrator/retention_orchestrator.py \
-  --project-id o2czed1 \
-  --dataset opr_data \
-  --execution-date 2026-07-28 \
-  --filter-rule-id "TD_AP_STG_DPM_MESSAGE_20260728" \
-  --dry-run
+CALL `o2czep.opr_data.sp_add_column_age_retention_rule`(
+  'AP_STG',
+  'stg_data',
+  'DPM_MESSAGE',
+  'D',
+  NULL,
+  NULL,
+  'load_dttm',
+  90,
+  'DAY',
+  NULL,
+  'Denní mazání záznamů starších než 90 dní'
+);
 ```
 
-**4. Aktivujte až po úspěšném testu:**
-```sql
-UPDATE `o2czed1.opr_data.table_retention`
-SET is_active = TRUE,
-    updated_by = 'váš_login',
-    updated_dttm = CURRENT_TIMESTAMP()
-WHERE retention_rule_id = 'TD_AP_STG_DPM_MESSAGE_20260728';
+## Týdenní pravidlo – sobota
+
 ```
+CALL `o2czep.opr_data.sp_add_column_age_retention_rule`(
+  'AP_STG',
+  'stg_data',
+  'DPM_MESSAGE',
+  'W',
+  6,       -- sobota
+  NULL,
+  'load_dttm',
+  90,
+  'DAY',
+  NULL,
+  'Týdenní mazání záznamů starších než 90 dní, spuštění v sobotu'
+);
+```
+
+## Měsíční pravidlo – první den v měsíci
+
+```
+CALL `o2czep.opr_data.sp_add_column_age_retention_rule`(
+  'AP_STG',
+  'stg_data',
+  'DPM_MESSAGE',
+  'M',
+  NULL,
+  1,       -- první den v měsíci
+  'load_dttm',
+  12,
+  'MONTH',
+  NULL,
+  'Měsíční mazání záznamů starších než 12 měsíců'
+);
+```
+
+## Co procedura udělá automaticky
+
+Procedura:
+
+- ověří existenci cílové tabulky,
+- ověří existenci retenčního sloupce,
+- zjistí `column_data_type`,
+- ověří kombinaci D/W/M a plánovacích dnů,
+- vygeneruje unikátní `retention_rule_id`,
+- nastaví `retention_type = 'COLUMN_AGE'`,
+- nastaví `bq_execution_where_clause = NULL`,
+- doplní uživatele přes `SESSION_USER()`,
+- vloží pravidlo jako `is_active = FALSE`.
+
+Po vložení je tedy potřeba pravidlo zkontrolovat, otestovat a následně samostatně aktivovat.
 
 ## 2) retention_run
 

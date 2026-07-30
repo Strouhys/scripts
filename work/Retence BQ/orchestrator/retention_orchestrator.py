@@ -5,6 +5,7 @@ import os
 import sys
 import uuid
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional
 
 from google.cloud import bigquery
@@ -573,6 +574,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--override-retention-unit", choices=["DAY", "MONTH", "YEAR"], help="Temporary override of retention_unit for COLUMN_AGE rules")
     parser.add_argument("--dry-run", action="store_true", help="Do not execute DELETE statements")
     parser.add_argument("--log-level", choices=["DEBUG", "INFO", "WARNING", "ERROR"])
+    parser.add_argument("--log-dir", help="Directory for per-run log files; default=logs or RETENTION_LOG_DIR")
+    parser.add_argument("--no-file-log", action="store_true", help="Disable file logging for this run")
     return parser.parse_args()
 
 
@@ -668,10 +671,29 @@ def configure_auth(args: argparse.Namespace) -> None:
 def main() -> int:
     args = parse_args()
     log_level = env_or_arg(args.log_level, "RETENTION_LOG_LEVEL", "INFO")
+    log_dir_raw = env_or_arg(args.log_dir, "RETENTION_LOG_DIR", "logs")
+    log_to_file = not args.no_file_log and parse_env_bool("RETENTION_LOG_TO_FILE", True)
+
+    handlers: list[logging.Handler] = [logging.StreamHandler()]
+    log_file_path: Optional[Path] = None
+
+    if log_to_file:
+        timestamp = dt.datetime.now().strftime("%Y%m%d_%H%M%S")
+        log_dir = Path(log_dir_raw or "logs")
+        log_dir.mkdir(parents=True, exist_ok=True)
+        log_file_path = log_dir / f"retention_orchestrator_{timestamp}.log"
+        handlers.append(logging.FileHandler(log_file_path, encoding="utf-8"))
+
     logging.basicConfig(
         level=getattr(logging, (log_level or "INFO").upper()),
         format="%(asctime)s %(levelname)s %(message)s",
+        handlers=handlers,
+        force=True,
     )
+
+    if log_file_path is not None:
+        logging.info("File logging enabled path=%s", log_file_path.resolve())
+
     configure_auth(args)
 
     cfg = build_config(args)

@@ -12,7 +12,7 @@ $RunSuffix = Get-Date -Format "yyyyMMdd_HHmmss"
 
 $Tables = @(
    
-    "ocs_sms"
+     "OCS_SMS"
 )
 
 function Test-BqTable {

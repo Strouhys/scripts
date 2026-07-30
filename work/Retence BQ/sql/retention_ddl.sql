@@ -12,11 +12,10 @@ CREATE TABLE IF NOT EXISTS `o2czed1.opr_data.table_retention` (
   bq_dataset_name STRING OPTIONS(description="Název cílového BigQuery datasetu; NULL znamená dosud nepřemigrovaný dataset"),
   table_name STRING NOT NULL OPTIONS(description="Název cílové BigQuery tabulky"),
 
-  is_active BOOL NOT NULL OPTIONS(description="Příznak aktivace pravidla"),
+  is_active BOOL NOT NULL OPTIONS(description="Příznak aktivace retenčního pravidla pro BigQuery. V první fázi budou aktivní pouze pravidla pro dataset stg_data. Ostatní datasety budou postupně aktivovány podle průběhu migrace. V cílovém stavu by měla hodnota odpovídat sloupci td_is_active v poměru 1:1"),
   execution_frequency STRING NOT NULL OPTIONS(description="Kód frekvence spuštění D nebo W nebo M"),          -- D | W | M
   execution_day_of_week INT64 OPTIONS(description="Den v týdnu 1 pondělí až 7 neděle pro týdenní pravidla"),                  -- 1=Mon .. 7=Sun (pro W)
   execution_day_of_month INT64 OPTIONS(description="Den v měsíci 1 až 31 pro měsíční pravidla"),                 -- 1..31 (pro M) pokud by se pouzilo
-  execution_schedule STRING OPTIONS(description="Volitelný rozšířený výraz pro plán spuštění"),                    -- volitelny textovy rozsireny schedule
 
   retention_type STRING NOT NULL OPTIONS(description="Typ retenčního pravidla například COLUMN_AGE nebo CUSTOM_SQL"),               -- COLUMN_AGE | CUSTOM_SQL | ...
   retention_column STRING OPTIONS(description="Sloupec použitý pro vyhodnocení retenční hranice"),
@@ -27,10 +26,6 @@ CREATE TABLE IF NOT EXISTS `o2czed1.opr_data.table_retention` (
   bq_execution_where_clause STRING OPTIONS(description="WHERE podmínka přepsaná do BigQuery syntaxe pro reálné spuštění"),
 
   -- Volitelne sloupce pro rozsirenou CDC logiku
-  end_column STRING OPTIONS(description="Volitelný koncový sloupec pro CDC nebo temporal pravidla"),
-  operation_column STRING OPTIONS(description="Volitelný sloupec operace pro CDC pravidla"),
-  delete_operation_value STRING OPTIONS(description="Volitelná hodnota značící mazací operaci"),
-  source_time_column STRING OPTIONS(description="Volitelný zdrojový časový sloupec pro pokročilá pravidla"),
 
   retention_comment STRING OPTIONS(description="Volná provozní poznámka k retenčnímu pravidlu"),
 
@@ -38,7 +33,8 @@ CREATE TABLE IF NOT EXISTS `o2czed1.opr_data.table_retention` (
   updated_dttm TIMESTAMP DEFAULT CURRENT_TIMESTAMP() OPTIONS(description="Čas poslední aktualizace řádku"),
 
   created_by STRING OPTIONS(description="Uživatel nebo proces, který pravidlo vytvořil"),
-  updated_by STRING OPTIONS(description="Uživatel nebo proces, který pravidlo naposledy upravil")
+  updated_by STRING OPTIONS(description="Uživatel nebo proces, který pravidlo naposledy upravil"),
+  td_is_active BOOL NOT NULL OPTIONS(description="Příznak aktivace v Teradata. Postupně při migraci activuji/deaktivuji pravidla pro BQ ve sloupci is_active, abych nespouštěl retenci na tabulky které ještě nechceme retencovat"),
 )
 PARTITION BY DATE(created_dttm)
 -- Keep clustering only on non-string columns to avoid collation-related failures.
