@@ -988,7 +988,7 @@ function Show-OflowSystemsPrefixes {
             $items = @($_.Group)
             [PSCustomObject]@{
                 System    = $_.Name
-                Jobu      = ($items | Select-Object -ExpandProperty JobName -Unique).Count
+                Jobu      = @($items | Select-Object -ExpandProperty JobName -Unique).Count
                 VPoolu    = @($items | Where-Object { $_.InPool }).Count
                 MimoPool  = @($items | Where-Object { -not $_.InPool }).Count
             }
@@ -1021,7 +1021,7 @@ function Show-OflowSystemsStatusSummary {
             $items = @($_.Group)
             [PSCustomObject]@{
                 System        = $_.Name
-                Total         = ($items | Select-Object -ExpandProperty JobName -Unique).Count
+                Total         = @($items | Select-Object -ExpandProperty JobName -Unique).Count
                 NotInPool     = @($items | Where-Object { $_.Status -eq "not_in_pool" }).Count
                 Running       = @($items | Where-Object { $_.Status -eq "running" }).Count
                 FailedRestart = @($items | Where-Object { $_.Status -eq "failed_restart" }).Count
@@ -1125,6 +1125,132 @@ function Show-OflowJobsBySystemDetail {
 }
 
 
+
+
+function Show-OrExport-AllSystemsJobs {
+    Write-Section "Vsechny systemy a jejich joby"
+
+    $inventory = @(Get-OflowJobInventory)
+    if ($inventory.Count -eq 0) {
+        Write-Host "Nebyly nalezeny zadne joby." -ForegroundColor Yellow
+        return
+    }
+
+    # Jeden radek na jednu job definici. Pokud by API vratilo vice behu stejneho jobu,
+    # preferujeme beh, ktery je aktualne v poolu.
+    $detail = @($inventory |
+        Group-Object JobName |
+        ForEach-Object {
+            $rows = @($_.Group | Sort-Object @{ Expression = { if ($_.InPool) { 0 } else { 1 } } }, LastChange)
+            $row = $rows | Select-Object -First 1
+            [PSCustomObject]@{
+                System     = $row.Prefix
+                JobName    = $row.JobName
+                Status     = $row.Status
+                Id         = $row.Id
+                RunCount   = $row.RunCount
+                LastChange = $row.LastChange
+                InPool     = $row.InPool
+            }
+        } |
+        Sort-Object System, JobName)
+
+    $summary = @($detail |
+        Group-Object System |
+        ForEach-Object {
+            $items = @($_.Group)
+            [PSCustomObject]@{
+                System        = $_.Name
+                JobuCelkem    = $items.Count
+                NotInPool     = @($items | Where-Object { $_.Status -eq 'not_in_pool' }).Count
+                Running       = @($items | Where-Object { $_.Status -eq 'running' }).Count
+                FailedRestart = @($items | Where-Object { $_.Status -eq 'failed_restart' }).Count
+                FailedFinal   = @($items | Where-Object { $_.Status -eq 'failed_final' }).Count
+                Cancelled     = @($items | Where-Object { $_.Status -eq 'cancelled' }).Count
+                Other         = @($items | Where-Object { $_.Status -notin @('not_in_pool','running','failed_restart','failed_final','cancelled') }).Count
+            }
+        } |
+        Sort-Object System)
+
+    Write-Host "Nalezeno systemu/prefixu: $($summary.Count)" -ForegroundColor Green
+    Write-Host "Nalezeno jobu:            $($detail.Count)" -ForegroundColor Green
+    Write-Host ""
+    Write-Host "1 - Zobrazit vsechny systemy a joby"
+    Write-Host "2 - Exportovat do CSV a TXT"
+    Write-Host "3 - Zobrazit i exportovat"
+    $mode = Read-Host "Vyber, prazdne = 3"
+    if ([string]::IsNullOrWhiteSpace($mode)) { $mode = '3' }
+
+    if ($mode -notin @('1','2','3')) {
+        Write-Host "Neplatna volba. Akce zrusena." -ForegroundColor Yellow
+        return
+    }
+
+    if ($mode -in @('1','3')) {
+        Write-Host ""
+        Write-Host "Souhrn podle systemu:" -ForegroundColor Cyan
+        $summary | Format-Table -AutoSize
+
+        Write-Host ""
+        Write-Host "Vsechny systemy a jejich joby:" -ForegroundColor Cyan
+        foreach ($group in @($detail | Group-Object System)) {
+            Write-Host ""
+            Write-Host ("SYSTEM: {0} | JOBU: {1}" -f $group.Name, $group.Count) -ForegroundColor Cyan
+            @($group.Group) |
+                Select-Object JobName, Status, Id, RunCount, LastChange |
+                Format-Table -AutoSize
+        }
+    }
+
+    if ($mode -in @('2','3')) {
+        $stamp = Get-Date -Format 'yyyyMMdd_HHmmss'
+        $defaultDir = Join-Path (Get-Location) "oflow_system_jobs_$stamp"
+        $dirInput = Read-Host "Cilova slozka, prazdne = $defaultDir"
+        $outputDir = if ([string]::IsNullOrWhiteSpace($dirInput)) { $defaultDir } else { $dirInput.Trim() }
+
+        New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
+
+        $detailCsv = Join-Path $outputDir "all_systems_jobs_$stamp.csv"
+        $summaryCsv = Join-Path $outputDir "systems_summary_$stamp.csv"
+        $reportTxt = Join-Path $outputDir "all_systems_jobs_$stamp.txt"
+
+        $detail | Export-Csv -Path $detailCsv -NoTypeInformation -Encoding UTF8 -Delimiter ';'
+        $summary | Export-Csv -Path $summaryCsv -NoTypeInformation -Encoding UTF8 -Delimiter ';'
+
+        $lines = New-Object System.Collections.Generic.List[string]
+        $lines.Add("OFLOW - VSECHNY SYSTEMY A JEJICH JOBY")
+        $lines.Add("Generated: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')")
+        $lines.Add("BaseUrl: $script:BaseUrl")
+        $lines.Add("Systems: $($summary.Count)")
+        $lines.Add("Jobs: $($detail.Count)")
+        $lines.Add("")
+        $lines.Add("SOUHRN SYSTEMU")
+        $lines.Add("System;JobuCelkem;NotInPool;Running;FailedRestart;FailedFinal;Cancelled;Other")
+        foreach ($row in $summary) {
+            $lines.Add("$($row.System);$($row.JobuCelkem);$($row.NotInPool);$($row.Running);$($row.FailedRestart);$($row.FailedFinal);$($row.Cancelled);$($row.Other)")
+        }
+
+        foreach ($group in @($detail | Group-Object System)) {
+            $lines.Add("")
+            $lines.Add("============================================================")
+            $lines.Add("SYSTEM: $($group.Name) | JOBU: $($group.Count)")
+            $lines.Add("============================================================")
+            $lines.Add("JobName;Status;Id;RunCount;LastChange;InPool")
+            foreach ($job in @($group.Group)) {
+                $lines.Add("$($job.JobName);$($job.Status);$($job.Id);$($job.RunCount);$($job.LastChange);$($job.InPool)")
+            }
+        }
+        $lines | Set-Content -Path $reportTxt -Encoding UTF8
+
+        Write-Host ""
+        Write-Host "Export dokoncen:" -ForegroundColor Green
+        Write-Host "  Detail jobu:    $detailCsv"
+        Write-Host "  Souhrn systemu: $summaryCsv"
+        Write-Host "  Citlivy report: $reportTxt"
+        Write-Host ""
+        Write-Host "CSV pouziva oddelovac strednik, aby se dobre otevrel v ceskem Excelu." -ForegroundColor DarkGray
+    }
+}
 
 function Export-AllFailedJobLogs {
     Write-Section "Export logu vsech failed jobu"
@@ -1371,6 +1497,9 @@ function Show-Menu {
     Write-Host ("".PadRight($colWidth)) -NoNewline
     Write-Host "33 - Detail jobu pro system"
 
+    Write-Host ("".PadRight($colWidth)) -NoNewline
+    Write-Host "34 - Vsechny systemy + joby / export"
+
     Write-Host ""
     Write-Host " 0 - Konec" -ForegroundColor Yellow
     Write-Host ""
@@ -1412,6 +1541,7 @@ while ($true) {
             "31" { Show-OflowSystemsStatusSummary }
             "32" { Show-OflowFailedJobsBySystem }
             "33" { Show-OflowJobsBySystemDetail }
+            "34" { Show-OrExport-AllSystemsJobs }
 
             "0"  {
                 Write-Host "Konec."
