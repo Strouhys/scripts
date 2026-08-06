@@ -53,10 +53,10 @@ gcsql_db_name: "o2czhd1_opr"
 gcsql_fq_conn_id: "o2czhd1.europe-west4.cloud-sql-opr"
 ```
 
-Servisní účet zůstal zatím původní:
+Servisní účet je přepsaný na HR variantu:
 
 ```yaml
-gcsql_db_user: "edw-ext-load-dev@o2cz-dp-admin.iam"
+gcsql_db_user: "edw-hr-load-dev@o2cz-dp-admin.iam"
 ```
 
 Upraven také nadpis konfigurace z EDW na HR.
@@ -98,10 +98,10 @@ gcsql_db_name: "o2czhp_opr"
 gcsql_fq_conn_id: "o2czhp.europe-west4.cloud-sql-opr"
 ```
 
-Servisní účet zůstal zatím původní:
+Servisní účet je přepsaný na HR variantu:
 
 ```yaml
-gcsql_db_user: "edw-ext-load-prod@o2cz-dp-admin.iam"
+gcsql_db_user: "edw-hr-load-prod@o2cz-dp-admin.iam"
 ```
 
 ### PROD oflow konfigurace
@@ -255,19 +255,16 @@ To může být záměrně kvůli kompatibilitě, ale je vhodné potvrdit s Honzo
 
 ### Servisní účty a klíče
 
-Zatím zůstaly původní EDW názvy:
+Přepsané HR názvy:
 
 ```text
-edw-ext-load-dev@o2cz-dp-admin.iam
-edw-ext-load-prod@o2cz-dp-admin.iam
-o2cz-dp-admin-edw-ext-load-dev.json
-o2cz-dp-admin-edw-ext-load-prod.json
+edw-hr-load-dev@o2cz-dp-admin.iam
+edw-hr-load-prod@o2cz-dp-admin.iam
+o2cz-dp-admin-hr-ext-load-dev.json
+o2cz-dp-admin-hr-ext-load-prod.json
 ```
 
-Je potřeba potvrdit, zda:
-
-- mají být sdílené i pro HR,
-- nebo existují samostatné HR servisní účty a klíče.
+Je potřeba tyto účty a klíče vytvořit, pokud ještě neexistují.
 
 ### Linux template
 
