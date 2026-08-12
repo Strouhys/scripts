@@ -1,8 +1,8 @@
 ﻿OFLOW - VSECHNY SYSTEMY A JEJICH JOBY
-Generated: 2026-08-05 11:34:21
+Generated: 2026-08-12 08:10:33
 BaseUrl: http://ntinfo403:8010
-Systems: 40
-Jobs: 807
+Systems: 45
+Jobs: 855
 
 SOUHRN SYSTEMU
 System;JobuCelkem;NotInPool;Running;FailedRestart;FailedFinal;Cancelled;Other
@@ -16,13 +16,18 @@ drl;2;2;0;0;0;0;0
 ds;3;3;0;0;0;0;0
 ebill;10;10;0;0;0;0;0
 ebox;24;24;0;0;0;0;0
+ec;10;10;0;0;0;0;0
 firefly;4;4;0;0;0;0;0
 hwp;73;73;0;0;0;0;0
-imd;47;46;1;0;0;0;0
+imd;47;47;0;0;0;0;0
+iotdm;1;1;0;0;0;0;0
+jibus;1;0;0;0;1;0;0
 jira;24;24;0;0;0;0;0
 jlm;19;19;0;0;0;0;0
+k2;2;2;0;0;0;0;0
 kofax;6;6;0;0;0;0;0
 los;31;31;0;0;0;0;0
+merk;34;34;0;0;0;0;0
 nk;5;5;0;0;0;0;0
 nova;4;4;0;0;0;0;0
 ntrcrs;1;1;0;0;0;0;0
@@ -239,6 +244,21 @@ ebox_users;not_in_pool;;;;False
 ebox_views_v2;not_in_pool;;;;False
 
 ============================================================
+SYSTEM: ec | JOBU: 10
+============================================================
+JobName;Status;Id;RunCount;LastChange;InPool
+ec_gov_agregace;not_in_pool;;;;False
+ec_oc_mandays;not_in_pool;;;;False
+ec_oc_performance;not_in_pool;;;;False
+ec_oc_personal_dvlp_activity;not_in_pool;;;;False
+ec_oc_products_groups_cd;not_in_pool;;;;False
+ec_oc_products_head;not_in_pool;;;;False
+ec_oc_products_head_discount_bonus;not_in_pool;;;;False
+ec_oc_products_orders;not_in_pool;;;;False
+ec_oc_products_orders_discount_bonus;not_in_pool;;;;False
+ec_oc_ret_comm_valor;not_in_pool;;;;False
+
+============================================================
 SYSTEM: firefly | JOBU: 4
 ============================================================
 JobName;Status;Id;RunCount;LastChange;InPool
@@ -345,7 +365,7 @@ imd_gsm_tap_out;not_in_pool;;;;False
 imd_hua;not_in_pool;;;;False
 imd_chat_df001;not_in_pool;;;;False
 imd_imsn;not_in_pool;;;;False
-imd_inas;running;135377;1;2026-08-05T11:34:15.058081+02:00;True
+imd_inas;not_in_pool;;;;False
 imd_info_sms;not_in_pool;;;;False
 imd_jsms;not_in_pool;;;;False
 imd_lte_pgwr;not_in_pool;;;;False
@@ -376,6 +396,18 @@ imd_vlte_moc;not_in_pool;;;;False
 imd_vlte_mtc;not_in_pool;;;;False
 imd_wsp;not_in_pool;;;;False
 imd_xdsl;not_in_pool;;;;False
+
+============================================================
+SYSTEM: iotdm | JOBU: 1
+============================================================
+JobName;Status;Id;RunCount;LastChange;InPool
+iotdm_payer_device_cnt;not_in_pool;;;;False
+
+============================================================
+SYSTEM: jibus | JOBU: 1
+============================================================
+JobName;Status;Id;RunCount;LastChange;InPool
+jibus_nabidky;failed_final;100713;3;2026-08-12T01:20:13.8844478+02:00;True
 
 ============================================================
 SYSTEM: jira | JOBU: 24
@@ -431,6 +463,13 @@ jlm_lov_prospect_state;not_in_pool;;;;False
 jlm_person;not_in_pool;;;;False
 
 ============================================================
+SYSTEM: k2 | JOBU: 2
+============================================================
+JobName;Status;Id;RunCount;LastChange;InPool
+k2_customer_kukatko;not_in_pool;;;;False
+k2_product_kukatko;not_in_pool;;;;False
+
+============================================================
 SYSTEM: kofax | JOBU: 6
 ============================================================
 JobName;Status;Id;RunCount;LastChange;InPool
@@ -476,6 +515,45 @@ los_vgtyp;not_in_pool;;;;False
 los_vkbur;not_in_pool;;;;False
 los_vtweg;not_in_pool;;;;False
 los_zlsch;not_in_pool;;;;False
+
+============================================================
+SYSTEM: merk | JOBU: 34
+============================================================
+JobName;Status;Id;RunCount;LastChange;InPool
+merk_cmpn_act_manner;not_in_pool;;;;False
+merk_cmpn_bank_accounts;not_in_pool;;;;False
+merk_cmpn_body_person;not_in_pool;;;;False
+merk_cmpn_bp;not_in_pool;;;;False
+merk_cmpn_bp_premises;not_in_pool;;;;False
+merk_cmpn_categories;not_in_pool;;;;False
+merk_cmpn_databox_ids;not_in_pool;;;;False
+merk_cmpn_emails;not_in_pool;;;;False
+merk_cmpn_ent_government_grant;not_in_pool;;;;False
+merk_cmpn_esi;not_in_pool;;;;False
+merk_cmpn_facebook;not_in_pool;;;;False
+merk_cmpn_insolvency_cases;not_in_pool;;;;False
+merk_cmpn_linkedin;not_in_pool;;;;False
+merk_cmpn_mobiles;not_in_pool;;;;False
+merk_cmpn_phones;not_in_pool;;;;False
+merk_cmpn_secondary_industries;not_in_pool;;;;False
+merk_cmpn_trademarks;not_in_pool;;;;False
+merk_cmpn_twitter;not_in_pool;;;;False
+merk_cmpn_webs;not_in_pool;;;;False
+merk_company;not_in_pool;;;;False
+merk_company_events;not_in_pool;;;;False
+merk_county;not_in_pool;;;;False
+merk_court;not_in_pool;;;;False
+merk_fin_indicator_cz;not_in_pool;;;;False
+merk_fin_indicator_sk;not_in_pool;;;;False
+merk_fin_statement_cz;not_in_pool;;;;False
+merk_fin_statement_sk;not_in_pool;;;;False
+merk_industry;not_in_pool;;;;False
+merk_legal_form;not_in_pool;;;;False
+merk_magnitude;not_in_pool;;;;False
+merk_owning_type;not_in_pool;;;;False
+merk_region;not_in_pool;;;;False
+merk_status;not_in_pool;;;;False
+merk_turnover;not_in_pool;;;;False
 
 ============================================================
 SYSTEM: nk | JOBU: 5
