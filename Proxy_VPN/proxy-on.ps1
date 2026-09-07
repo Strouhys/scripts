@@ -10,7 +10,7 @@ $env:HTTPS_PROXY = $proxy
 $env:no_proxy = $noProxy
 $env:NO_PROXY = $noProxy
 
-Write-Host "Proxy proměnné byly nastaveny pro toto PowerShell okno." -ForegroundColor Green
+Write-Host "Proxy on nastaveno" -ForegroundColor Green
 Write-Host "http_proxy=$env:http_proxy"
 Write-Host "https_proxy=$env:https_proxy"
 Write-Host "no_proxy=$env:no_proxy"
