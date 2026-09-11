@@ -14,5 +14,5 @@ default:
 
 # LINUX: run the stage load for one extract
 [ group('prod') ]
-web-403:
-    C:\Users\x0577063\scripts\bin\oflow-web-windows-amd64.exe
+web-404:
+    C:\Users\x0577063\scripts\bin_404\oflow-web-windows-amd64.exe

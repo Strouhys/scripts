@@ -1,6 +1,6 @@
 @echo off
 title OFLOW Admin
-cd /d "C:\Users\x0577063\scripts\PowerShell"
+cd /d "C:\Users\x0577063\scripts\PowerShell_404"
 
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File ".\status-vyvoj-2_5.ps1"
 

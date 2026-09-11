@@ -1,0 +1,7 @@
+cdm
+C:\Users\x0577063\scripts\bin
+just
+
+just web-403
+
+a připojit se na local:8011
