@@ -55,6 +55,7 @@ def parse_env_bool(env_name: str, default: bool = False) -> bool:
 @dataclass
 class Config:
     project_id: str
+    job_project_id: str
     dataset: str
     orchestrator: str
     trigger_type: str
@@ -558,6 +559,7 @@ class RetentionOrchestrator:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Retention orchestrator MVP for BigQuery")
     parser.add_argument("--project-id", help="GCP project containing retention metadata dataset")
+    parser.add_argument("--job-project-id", help="GCP project used to create and bill BigQuery jobs")
     parser.add_argument("--credentials-path", help="Optional path to service account JSON key")
     parser.add_argument("--dataset", help="Dataset name with retention tables")
     parser.add_argument("--orchestrator", choices=["TASK_SCHEDULER", "OFLOW", "AIRFLOW"])
@@ -589,6 +591,7 @@ def build_config(args: argparse.Namespace) -> Config:
     project_id = env_or_arg(args.project_id, "RETENTION_PROJECT_ID")
     if not project_id:
         raise ValueError("project-id is required via --project-id or RETENTION_PROJECT_ID in .env")
+    job_project_id = env_or_arg(args.job_project_id, "RETENTION_JOB_PROJECT_ID", project_id)
 
     dataset = env_or_arg(args.dataset, "RETENTION_METADATA_DATASET", "opr_data")
     orchestrator = env_or_arg(args.orchestrator, "RETENTION_ORCHESTRATOR", "TASK_SCHEDULER")
@@ -630,6 +633,7 @@ def build_config(args: argparse.Namespace) -> Config:
 
     return Config(
         project_id=project_id,
+        job_project_id=job_project_id or project_id,
         dataset=dataset,
         orchestrator=orchestrator,
         trigger_type=trigger_type,
@@ -648,7 +652,7 @@ def build_config(args: argparse.Namespace) -> Config:
 
 
 def configure_auth(args: argparse.Namespace) -> None:
-    load_dotenv()
+    load_dotenv(override=True)
 
     # Prefer OS trust store when available (helps in corporate TLS inspection environments).
     if truststore is not None:
@@ -697,7 +701,8 @@ def main() -> int:
     configure_auth(args)
 
     cfg = build_config(args)
-    client = bigquery.Client(project=cfg.project_id)
+    logging.info("Using BigQuery job project=%s metadata project=%s", cfg.job_project_id, cfg.project_id)
+    client = bigquery.Client(project=cfg.job_project_id)
     orchestrator = RetentionOrchestrator(client, cfg)
     return orchestrator.run()
 

@@ -13,7 +13,14 @@ $Dataset       = "stg_lnd"
 $RunSuffix = Get-Date -Format "yyyyMMdd_HHmmss"
 
 $Tables = @(
-    "ocs_tariff_update__dq10000__144428176"
+    "ocs_vas_reserve_commit__dq10000__144768326",
+"imd_call_fix_df001__dq10000__144769561",
+"imd_gsm_tap__dq10000__144769865",
+"ocs_subscriber_lifecycle__dq10000__144770184",
+"zpfr_zp_region__dq10000__144755216",
+"org_str_cc_data_os_inclusion__dq10000__147714408",
+"imd_data_scdr__dq10000__147713795"
+
 )
 
 function Test-BqTable {

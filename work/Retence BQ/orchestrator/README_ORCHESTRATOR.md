@@ -55,6 +55,8 @@ Podporované proměnné:
 ```env
 # Umístění metadat
 RETENTION_PROJECT_ID=o2czed1
+# Projekt, kde má účet BigQuery Job User; výchozí je RETENTION_PROJECT_ID
+RETENTION_JOB_PROJECT_ID=o2cz-dp-wm-100
 RETENTION_METADATA_DATASET=opr_data
 
 # Režim spuštění
